@@ -1,0 +1,11 @@
+{
+  "styleDoc": "docs/art-style-prompt.md",
+  "assetType": "building",
+  "positive": "post-apocalyptic survival card game illustration, dark muted colors, hand-painted texture, rusty worn materials, semi-realistic, consistent lighting, scrap metal wood improvised shelter, corrugated iron, patched construction, temporary refuge, wasteland",
+  "negative": "neon lights, cyberpunk, sci-fi futuristic, high saturation, anime, clean modern architecture, futuristic tech",
+  "aspectRatio": "16:9",
+  "tool": "cursor-generate",
+  "workflow": null,
+  "seed": null,
+  "notes": "风格参考：建筑/场景插图"
+}

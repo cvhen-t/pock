@@ -1,0 +1,55 @@
+{
+  "enemies": [
+    {
+      "id": "mutant_hound",
+      "name": "变异犬",
+      "cardId": "mutant_hound",
+      "speed": 42,
+      "hp": 6,
+      "contactDamage": { "resource": "food", "amount": 1 },
+      "contactCooldownSec": 2.5,
+      "tags": ["beast", "melee"]
+    },
+    {
+      "id": "rad_rat",
+      "name": "辐射鼠",
+      "cardId": "mutant_hound",
+      "speed": 58,
+      "hp": 3,
+      "contactDamage": { "resource": "food", "amount": 1 },
+      "contactCooldownSec": 3,
+      "tags": ["beast", "fast"]
+    },
+    {
+      "id": "scavenger",
+      "name": "拾荒者",
+      "cardId": "mutant_hound",
+      "speed": 32,
+      "hp": 8,
+      "contactDamage": { "resource": "scrap", "amount": 1 },
+      "contactCooldownSec": 3,
+      "targetPreference": "resource",
+      "tags": ["humanoid"]
+    },
+    {
+      "id": "spore_beast",
+      "name": "孢兽",
+      "cardId": "mutant_hound",
+      "speed": 28,
+      "hp": 14,
+      "contactDamage": { "resource": "water", "amount": 1 },
+      "contactCooldownSec": 2.5,
+      "tags": ["beast", "tank"]
+    },
+    {
+      "id": "alpha_hound",
+      "name": "头领犬",
+      "cardId": "mutant_hound",
+      "speed": 38,
+      "hp": 18,
+      "contactDamage": { "resource": "food", "amount": 2 },
+      "contactCooldownSec": 2,
+      "tags": ["beast", "boss"]
+    }
+  ]
+}

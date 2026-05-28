@@ -1,0 +1,11 @@
+{
+  "styleDoc": "docs/art-style-prompt.md",
+  "assetType": "card_item",
+  "positive": "post-apocalyptic survival card game illustration, dark muted colors, hand-painted texture, rusty worn materials, semi-realistic, top-down item card art, simple background, consistent lighting, single rusty metal canteen centered, top-down view, clear silhouette, minimal dusty grey background",
+  "negative": "neon lights, cyberpunk, sci-fi futuristic, high saturation, anime, chibi, tentacles, eldritch, fashion, clean shiny metal",
+  "aspectRatio": "1:1",
+  "tool": "cursor-generate",
+  "workflow": null,
+  "seed": null,
+  "notes": "风格参考：卡牌物品插图"
+}

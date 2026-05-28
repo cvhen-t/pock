@@ -1,0 +1,25 @@
+{
+  "decks": [
+    {
+      "id": "resource",
+      "name": "资源",
+      "description": "生存物资、工作点、材料与货币",
+      "cardFile": "deck_resource.json",
+      "color": "#8b7355"
+    },
+    {
+      "id": "attack",
+      "name": "攻击",
+      "description": "武器、变异植物、陷阱与敌人",
+      "cardFile": "deck_attack.json",
+      "color": "#8b4a4a"
+    },
+    {
+      "id": "defense",
+      "name": "防御",
+      "description": "栅栏、掩体、场地与障碍",
+      "cardFile": "deck_defense.json",
+      "color": "#6a7a5a"
+    }
+  ]
+}

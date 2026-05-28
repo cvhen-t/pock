@@ -1,0 +1,116 @@
+{
+  "deck": "attack",
+  "cards": [
+    {
+      "id": "rusty_machete",
+      "name": "生锈砍刀",
+      "deck": "attack",
+      "shape": "standard",
+      "tags": ["weapon", "melee"],
+      "color": "#5a4a40",
+      "effects": [
+        { "type": "equip_weapon", "damage": 2, "range": 40, "attackCooldown": 1.8, "slot": "melee" }
+      ]
+    },
+    {
+      "id": "scrap_bow",
+      "name": "废料弩",
+      "deck": "attack",
+      "shape": "standard",
+      "tags": ["weapon", "ranged"],
+      "color": "#4a4540",
+      "effects": [
+        { "type": "equip_weapon", "damage": 2, "range": 110, "attackCooldown": 2, "slot": "ranged" }
+      ]
+    },
+    {
+      "id": "molotov",
+      "name": "燃烧瓶",
+      "deck": "attack",
+      "shape": "compact",
+      "tags": ["weapon", "consumable"],
+      "color": "#6a4030",
+      "effects": [
+        { "type": "equip_weapon", "damage": 6, "range": 60, "attackCooldown": 0.5, "consumeOnUse": true }
+      ]
+    },
+    {
+      "id": "seed_thornvine",
+      "name": "变异种子·刺藤",
+      "deck": "attack",
+      "shape": "compact",
+      "tags": ["mutant_seed", "farm"],
+      "color": "#3a4a2e"
+    },
+    {
+      "id": "seed_spore",
+      "name": "变异种子·孢菇",
+      "deck": "attack",
+      "shape": "compact",
+      "tags": ["mutant_seed", "farm"],
+      "color": "#3a4a32"
+    },
+    {
+      "id": "plant_thornvine",
+      "name": "锈刺藤",
+      "deck": "attack",
+      "shape": "slim",
+      "tags": ["attack_plant"],
+      "color": "#2e4a28",
+      "effects": [
+        {
+          "type": "defense_turret",
+          "damage": 2,
+          "range": 90,
+          "hp": 8,
+          "attackCooldown": 1.2,
+          "attackPresentation": {
+            "style": "underground_vine",
+            "spawnFrom": "target_feet",
+            "hitFrame": 5,
+            "frameRate": 12
+          }
+        }
+      ]
+    },
+    {
+      "id": "plant_sporegun",
+      "name": "孢子弹匣菇",
+      "deck": "attack",
+      "shape": "standard",
+      "tags": ["attack_plant"],
+      "color": "#2a4230",
+      "effects": [
+        { "type": "defense_turret", "damage": 3, "range": 120, "hp": 5, "attackCooldown": 1.5 }
+      ]
+    },
+    {
+      "id": "watch_dog",
+      "name": "看门犬",
+      "deck": "attack",
+      "shape": "standard",
+      "tags": ["unit", "guard"],
+      "color": "#4a4038",
+      "effects": [
+        { "type": "guard_unit", "damage": 2, "speed": 50, "hp": 10, "engageRange": 80 }
+      ]
+    },
+    {
+      "id": "trap_wire",
+      "name": "绊索",
+      "deck": "attack",
+      "shape": "slim",
+      "tags": ["trap"],
+      "color": "#5a5048",
+      "effects": [{ "type": "trap_contact", "damage": 4, "radius": 50, "consumeOnTrigger": true }]
+    },
+    {
+      "id": "mutant_hound",
+      "name": "变异犬",
+      "deck": "attack",
+      "shape": "standard",
+      "tags": ["enemy"],
+      "color": "#4a3232"
+    }
+  ]
+}

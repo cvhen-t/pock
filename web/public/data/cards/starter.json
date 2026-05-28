@@ -1,0 +1,91 @@
+{
+  "cards": [
+    {
+      "id": "survivor",
+      "name": "幸存者",
+      "tags": ["survivor", "unit"],
+      "color": "#5c4a3a",
+      "effects": [{ "type": "log", "message": "worker ready" }]
+    },
+    {
+      "id": "rust_bush",
+      "name": "锈蚀灌木",
+      "tags": ["worksite", "resource_node"],
+      "color": "#3d4a32",
+      "effects": [
+        {
+          "type": "spawn_timer",
+          "requiresStackTag": "survivor",
+          "outputCardId": "berry_mutant",
+          "intervalSeconds": 8
+        }
+      ]
+    },
+    {
+      "id": "berry_mutant",
+      "name": "变异浆果",
+      "tags": ["resource", "food"],
+      "color": "#4a3d32"
+    },
+    {
+      "id": "scrap_pile",
+      "name": "废料堆",
+      "tags": ["worksite", "resource_node"],
+      "color": "#4a4540",
+      "effects": [
+        {
+          "type": "spawn_timer",
+          "requiresStackTag": "survivor",
+          "outputCardId": "scrap",
+          "intervalSeconds": 10
+        }
+      ]
+    },
+    {
+      "id": "scrap",
+      "name": "零件",
+      "tags": ["resource"],
+      "color": "#5a5550"
+    },
+    {
+      "id": "blight_plot",
+      "name": "污壤",
+      "tags": ["blight_plot", "building"],
+      "color": "#2e3d2a",
+      "effects": [
+        {
+          "type": "plant_mutant",
+          "growthSeconds": 12,
+          "outcomes": "growth_thornvine"
+        }
+      ]
+    },
+    {
+      "id": "seed_thornvine",
+      "name": "变异种子·刺藤",
+      "tags": ["mutant_seed", "farm"],
+      "color": "#3a4a2e"
+    },
+    {
+      "id": "plant_thornvine",
+      "name": "锈刺藤",
+      "tags": ["attack_plant"],
+      "color": "#2e4a28",
+      "effects": [
+        { "type": "defense_turret", "damage": 2, "range": 90, "hp": 8, "attackCooldown": 1.2 }
+      ]
+    },
+    {
+      "id": "plant_weed",
+      "name": "杂草",
+      "tags": ["plant"],
+      "color": "#3a4230"
+    },
+    {
+      "id": "mutant_hound",
+      "name": "变异犬",
+      "tags": ["enemy"],
+      "color": "#4a3232"
+    }
+  ]
+}

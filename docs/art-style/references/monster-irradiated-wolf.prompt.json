@@ -1,0 +1,11 @@
+{
+  "styleDoc": "docs/art-style-prompt.md",
+  "assetType": "monster",
+  "positive": "post-apocalyptic survival card game illustration, dark muted colors, hand-painted texture, semi-realistic, consistent lighting, mild mutation irradiated wolf, scarred fur, subtle sickly eyes, wasteland ground, no tentacles",
+  "negative": "neon lights, cyberpunk, eldritch horror, tentacles, cosmic horror, high saturation, anime, chibi",
+  "aspectRatio": "4:3",
+  "tool": "cursor-generate",
+  "workflow": null,
+  "seed": null,
+  "notes": "风格参考：怪物插图"
+}

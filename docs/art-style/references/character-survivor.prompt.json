@@ -1,0 +1,11 @@
+{
+  "styleDoc": "docs/art-style-prompt.md",
+  "assetType": "character",
+  "positive": "post-apocalyptic survival card game illustration, dark muted colors, hand-painted texture, rusty worn materials, semi-realistic, consistent lighting, wasteland survivor, worn functional clothing, patched jacket, no fashion, soft overcast, lonely mood",
+  "negative": "neon lights, cyberpunk, sci-fi futuristic, high saturation, anime, chibi, fashion model, luxury, tentacles, eldritch",
+  "aspectRatio": "3:4",
+  "tool": "cursor-generate",
+  "workflow": null,
+  "seed": null,
+  "notes": "风格参考：角色插图"
+}

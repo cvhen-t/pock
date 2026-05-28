@@ -1,0 +1,7 @@
+{
+  "growth_thornvine": [
+    { "result": "plant_thornvine", "weight": 70 },
+    { "result": "plant_weed", "weight": 20 },
+    { "result": "fail_contaminate", "weight": 10 }
+  ]
+}

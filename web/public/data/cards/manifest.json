@@ -1,0 +1,7 @@
+{
+  "files": [
+    "deck_resource.json",
+    "deck_attack.json",
+    "deck_defense.json"
+  ]
+}

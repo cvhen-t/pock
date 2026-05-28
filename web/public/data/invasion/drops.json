@@ -1,0 +1,17 @@
+{
+  "default": [
+    { "cardId": "scrap", "weight": 60 },
+    { "cardId": "caps", "weight": 20 },
+    { "cardId": "berry_mutant", "weight": 15 },
+    { "cardId": "seed_thornvine", "weight": 5 }
+  ],
+  "byEnemyTag": {
+    "boss": [
+      { "cardId": "scrap", "weight": 40 },
+      { "cardId": "caps", "weight": 40 },
+      { "cardId": "seed_spore", "weight": 20 }
+    ],
+    "humanoid": [{ "cardId": "wood_plank", "weight": 50 }, { "cardId": "caps", "weight": 50 }]
+  },
+  "maxDropsOnBoard": 5
+}

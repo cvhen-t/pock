@@ -1,0 +1,11 @@
+{
+  "styleDoc": "docs/art-style-prompt.md",
+  "assetType": "building",
+  "positive": "post-apocalyptic survival card game illustration, dark muted colors, hand-painted texture, semi-realistic, consistent lighting, wasteland board backdrop, dusty grey-brown sky, distant ruined industrial silhouettes on horizon, barren cracked ground, scattered rust debris, overcast soft lighting, 16:9 landscape, no characters, no text",
+  "negative": "neon lights, cyberpunk, sci-fi futuristic, high saturation, anime, chibi, characters, UI, text, logo, bright colors, clean shiny",
+  "aspectRatio": "16:9",
+  "tool": "cursor-generate",
+  "workflow": null,
+  "seed": null,
+  "notes": "游戏主场景全屏背景，RESIZE 下 cover 铺满"
+}

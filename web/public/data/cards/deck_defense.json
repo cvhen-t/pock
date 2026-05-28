@@ -1,0 +1,116 @@
+{
+  "deck": "defense",
+  "cards": [
+    {
+      "id": "base_camp",
+      "name": "避难所大本营",
+      "deck": "defense",
+      "shape": "tile",
+      "tags": ["base", "building", "defense"],
+      "color": "#4a4038",
+      "effects": [
+        {
+          "type": "base_core",
+          "hp": 30,
+          "contactDamage": 1,
+          "contactCooldownSec": 2,
+          "healPerScrap": 2,
+          "moonRegen": 2
+        }
+      ]
+    },
+    {
+      "id": "fence_iron",
+      "name": "铁栅栏",
+      "deck": "defense",
+      "shape": "slim",
+      "tags": ["defense", "barrier"],
+      "color": "#4a4a48",
+      "effects": [{ "type": "barrier", "slow": 0.5, "hp": 12 }]
+    },
+    {
+      "id": "barricade_wood",
+      "name": "木板路障",
+      "deck": "defense",
+      "shape": "slim",
+      "tags": ["defense", "barrier"],
+      "color": "#5a4a32",
+      "effects": [{ "type": "barrier", "slow": 0.35, "hp": 6 }]
+    },
+    {
+      "id": "sandbag_wall",
+      "name": "沙袋墙",
+      "deck": "defense",
+      "shape": "wide",
+      "tags": ["defense", "wall"],
+      "color": "#5a5040",
+      "effects": [{ "type": "barrier", "blockRanged": true, "hp": 16 }]
+    },
+    {
+      "id": "blight_plot",
+      "name": "污壤",
+      "deck": "defense",
+      "shape": "tile",
+      "tags": ["blight_plot", "building"],
+      "color": "#2e3d2a",
+      "effects": [
+        {
+          "type": "plant_mutant",
+          "growthSeconds": 12,
+          "outcomes": "growth_thornvine"
+        }
+      ]
+    },
+    {
+      "id": "chicken_coop",
+      "name": "鸡舍",
+      "deck": "defense",
+      "shape": "wide",
+      "tags": ["building", "ranch"],
+      "color": "#4a4030"
+    },
+    {
+      "id": "spike_strip",
+      "name": "地刺带",
+      "deck": "defense",
+      "shape": "wide",
+      "tags": ["defense", "trap"],
+      "color": "#4a4540",
+      "effects": [{ "type": "trap_contact", "damage": 3 }]
+    },
+    {
+      "id": "bunker_sheet",
+      "name": "铁皮掩体",
+      "deck": "defense",
+      "shape": "tile",
+      "tags": ["defense", "shelter"],
+      "color": "#3a3a38",
+      "effects": [{ "type": "shelter", "damageReduction": 0.5, "chargesPerMoon": 2 }]
+    },
+    {
+      "id": "gate_scrap",
+      "name": "废铁门",
+      "deck": "defense",
+      "shape": "wide",
+      "tags": ["defense", "gate"],
+      "color": "#4a4844",
+      "effects": [{ "type": "barrier", "slow": 0.4, "hp": 14 }]
+    },
+    {
+      "id": "barbed_roll",
+      "name": "铁丝网卷",
+      "deck": "defense",
+      "shape": "compact",
+      "tags": ["defense", "consumable"],
+      "color": "#5a5550"
+    },
+    {
+      "id": "plant_weed",
+      "name": "杂草",
+      "deck": "defense",
+      "shape": "compact",
+      "tags": ["plant"],
+      "color": "#3a4230"
+    }
+  ]
+}

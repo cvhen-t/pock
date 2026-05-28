@@ -1,0 +1,117 @@
+{
+  "deck": "resource",
+  "cards": [
+    {
+      "id": "survivor",
+      "name": "幸存者",
+      "deck": "resource",
+      "shape": "standard",
+      "tags": ["survivor", "unit"],
+      "color": "#5c4a3a"
+    },
+    {
+      "id": "rust_bush",
+      "name": "锈蚀灌木",
+      "deck": "resource",
+      "shape": "standard",
+      "tags": ["worksite", "resource_node"],
+      "color": "#3d4a32",
+      "effects": [
+        {
+          "type": "spawn_timer",
+          "requiresStackTag": "survivor",
+          "outputCardId": "berry_mutant",
+          "intervalSeconds": 8
+        }
+      ]
+    },
+    {
+      "id": "scrap_pile",
+      "name": "废料堆",
+      "deck": "resource",
+      "shape": "standard",
+      "tags": ["worksite", "resource_node"],
+      "color": "#4a4540",
+      "effects": [
+        {
+          "type": "spawn_timer",
+          "requiresStackTag": "survivor",
+          "outputCardId": "scrap",
+          "intervalSeconds": 10
+        }
+      ]
+    },
+    {
+      "id": "berry_mutant",
+      "name": "变异浆果",
+      "deck": "resource",
+      "shape": "compact",
+      "tags": ["resource", "food"],
+      "color": "#4a3d32"
+    },
+    {
+      "id": "scrap",
+      "name": "零件",
+      "deck": "resource",
+      "shape": "compact",
+      "tags": ["resource", "material"],
+      "color": "#5a5550"
+    },
+    {
+      "id": "water_dirty",
+      "name": "浑水",
+      "deck": "resource",
+      "shape": "compact",
+      "tags": ["resource", "water_raw"],
+      "color": "#3a4548"
+    },
+    {
+      "id": "water_clean",
+      "name": "净水",
+      "deck": "resource",
+      "shape": "compact",
+      "tags": ["resource", "water"],
+      "color": "#4a5a5c"
+    },
+    {
+      "id": "canned_food",
+      "name": "应急罐头",
+      "deck": "resource",
+      "shape": "compact",
+      "tags": ["resource", "food"],
+      "color": "#5c4a38"
+    },
+    {
+      "id": "iron_wheat_seed",
+      "name": "铁根麦种",
+      "deck": "resource",
+      "shape": "compact",
+      "tags": ["seed", "farm"],
+      "color": "#4a4230"
+    },
+    {
+      "id": "feed_bag",
+      "name": "饲料袋",
+      "deck": "resource",
+      "shape": "compact",
+      "tags": ["resource", "feed"],
+      "color": "#5a4a32"
+    },
+    {
+      "id": "wood_plank",
+      "name": "木板",
+      "deck": "resource",
+      "shape": "compact",
+      "tags": ["resource", "material"],
+      "color": "#6a5a40"
+    },
+    {
+      "id": "caps",
+      "name": "筹码",
+      "deck": "resource",
+      "shape": "compact",
+      "tags": ["resource", "currency"],
+      "color": "#8b6914"
+    }
+  ]
+}

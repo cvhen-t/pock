@@ -1,0 +1,23 @@
+{
+  "recipes": [
+    {
+      "id": "recipe_blight_plot",
+      "inputs": [
+        { "tag": "survivor", "count": 1 },
+        { "cardId": "scrap", "count": 2 }
+      ],
+      "output": { "cardId": "blight_plot", "count": 1 },
+      "workSeconds": 6,
+      "manualUnlock": "manual_mutant_01"
+    },
+    {
+      "id": "recipe_stack_survivor_bush",
+      "inputs": [
+        { "tag": "survivor", "count": 1 },
+        { "cardId": "rust_bush", "count": 1 }
+      ],
+      "output": { "cardId": "berry_mutant", "count": 1 },
+      "workSeconds": 8
+    }
+  ]
+}
