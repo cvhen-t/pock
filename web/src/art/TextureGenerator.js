@@ -122,6 +122,9 @@ function drawCardIcon(scene, cardId, key) {
         case 'base_camp':
             drawBaseCampIcon(g, cx, cy);
             break;
+        case 'trader_post':
+            drawTraderIcon(g, cx, cy);
+            break;
         case 'blight_plot':
             drawSoilIcon(g, cx, cy, 0x3a4a32);
             break;
@@ -185,6 +188,21 @@ function drawCardIcon(scene, cardId, key) {
             break;
         case 'wood_plank':
             drawPlankIcon(g, cx, cy);
+            break;
+        case 'soil_clump':
+            drawSoilClumpIcon(g, cx, cy);
+            break;
+        case 'wild_soil_mound':
+            drawWildSoilIcon(g, cx, cy);
+            break;
+        case 'wild_ore_vein':
+            drawWildOreIcon(g, cx, cy);
+            break;
+        case 'wild_tree_grove':
+            drawWildTreeIcon(g, cx, cy);
+            break;
+        case 'wild_lake':
+            drawWildLakeIcon(g, cx, cy);
             break;
         case 'feed_bag':
             drawFeedIcon(g, cx, cy);
@@ -294,6 +312,16 @@ function drawWallIcon(g, cx, cy) {
     g.fillRect(cx - 2, cy - 2, 8, 8);
     g.fillRect(cx + 10, cy - 2, 6, 8);
 }
+function drawTraderIcon(g, cx, cy) {
+    g.fillStyle(0x5c4a38, 1);
+    g.fillRoundedRect(cx - 16, cy - 4, 32, 16, 3);
+    g.fillStyle(0x8b6914, 1);
+    g.fillTriangle(cx, cy - 18, cx - 20, cy - 4, cx + 20, cy - 4);
+    g.fillStyle(0x4a4030, 1);
+    g.fillRect(cx - 10, cy + 2, 20, 10);
+    g.fillStyle(0xc9b896, 1);
+    g.fillCircle(cx, cy - 8, 4);
+}
 function drawBaseCampIcon(g, cx, cy) {
     g.fillStyle(0x4a4038, 1);
     g.fillRoundedRect(cx - 14, cy - 8, 28, 18, 3);
@@ -358,6 +386,47 @@ function drawCapsIcon(g, cx, cy) {
     g.fillCircle(cx - 6, cy, 6);
     g.fillCircle(cx + 6, cy, 6);
     g.fillCircle(cx, cy - 4, 5);
+}
+function drawSoilClumpIcon(g, cx, cy) {
+    g.fillStyle(0x5a4a38, 1);
+    g.fillCircle(cx - 5, cy + 2, 6);
+    g.fillCircle(cx + 6, cy, 5);
+    g.fillCircle(cx, cy - 4, 5);
+    g.fillStyle(0x3a3228, 0.7);
+    g.fillRect(cx - 8, cy + 6, 16, 3);
+}
+function drawWildSoilIcon(g, cx, cy) {
+    drawSoilIcon(g, cx, cy, 0x5a4a38);
+    g.fillStyle(0x4a6a38, 0.5);
+    g.fillCircle(cx - 10, cy - 4, 4);
+    g.fillCircle(cx + 8, cy - 2, 3);
+}
+function drawWildOreIcon(g, cx, cy) {
+    g.fillStyle(0x4a4848, 1);
+    g.fillTriangle(cx - 14, cy + 8, cx, cy - 12, cx + 14, cy + 8);
+    g.fillStyle(0x6a6560, 1);
+    g.fillTriangle(cx - 8, cy + 6, cx - 2, cy - 4, cx + 6, cy + 6);
+    g.fillStyle(0x8b7355, 0.9);
+    g.fillCircle(cx + 4, cy - 2, 3);
+    g.fillCircle(cx - 6, cy + 2, 2);
+}
+function drawWildTreeIcon(g, cx, cy) {
+    g.fillStyle(0x4a4030, 1);
+    g.fillRect(cx - 2, cy + 2, 4, 14);
+    g.fillRect(cx - 10, cy - 2, 4, 12);
+    g.fillRect(cx + 8, cy, 4, 10);
+    g.lineStyle(2, 0x5a4a32, 1);
+    g.lineBetween(cx - 10, cy - 2, cx - 6, cy - 12);
+    g.lineBetween(cx - 2, cy + 2, cx, cy - 14);
+    g.lineBetween(cx + 10, cy, cx + 6, cy - 10);
+}
+function drawWildLakeIcon(g, cx, cy) {
+    g.fillStyle(0x3a4548, 1);
+    g.fillEllipse(cx, cy + 2, 26, 14);
+    g.fillStyle(0x4a5a5c, 0.55);
+    g.fillEllipse(cx - 4, cy, 12, 6);
+    g.fillStyle(0x4a4038, 0.8);
+    g.fillRect(cx - 14, cy + 8, 28, 4);
 }
 function drawPlankIcon(g, cx, cy) {
     g.fillStyle(0x6a5a40, 1);

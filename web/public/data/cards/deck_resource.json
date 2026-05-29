@@ -46,7 +46,7 @@
       "name": "变异浆果",
       "deck": "resource",
       "shape": "compact",
-      "tags": ["resource", "food"],
+      "tags": ["resource", "food", "organic"],
       "color": "#4a3d32"
     },
     {
@@ -54,8 +54,16 @@
       "name": "零件",
       "deck": "resource",
       "shape": "compact",
-      "tags": ["resource", "material"],
+      "tags": ["resource", "material", "material_raw", "metal"],
       "color": "#5a5550"
+    },
+    {
+      "id": "soil_clump",
+      "name": "土块",
+      "deck": "resource",
+      "shape": "compact",
+      "tags": ["resource", "material", "material_raw", "soil"],
+      "color": "#5a4a38"
     },
     {
       "id": "water_dirty",
@@ -87,7 +95,8 @@
       "deck": "resource",
       "shape": "compact",
       "tags": ["seed", "farm"],
-      "color": "#4a4230"
+      "color": "#4a4230",
+      "effects": [{ "type": "farm_seed", "outcomes": "growth_farmland_wheat" }]
     },
     {
       "id": "feed_bag",
@@ -102,7 +111,7 @@
       "name": "木板",
       "deck": "resource",
       "shape": "compact",
-      "tags": ["resource", "material"],
+      "tags": ["resource", "material", "wood"],
       "color": "#6a5a40"
     },
     {
@@ -112,6 +121,422 @@
       "shape": "compact",
       "tags": ["resource", "currency"],
       "color": "#8b6914"
+    },
+    {
+      "id": "raw_timber",
+      "name": "粗木段",
+      "deck": "resource",
+      "shape": "compact",
+      "tags": ["resource", "material_raw", "wood"],
+      "color": "#5a4a30"
+    },
+    {
+      "id": "plant_fiber",
+      "name": "植物纤维",
+      "deck": "resource",
+      "shape": "compact",
+      "tags": ["resource", "material_raw", "fiber", "organic"],
+      "color": "#4a5a38"
+    },
+    {
+      "id": "stone_chunk",
+      "name": "石砾",
+      "deck": "resource",
+      "shape": "compact",
+      "tags": ["resource", "material_raw"],
+      "color": "#5a5a58"
+    },
+    {
+      "id": "rust_shard",
+      "name": "锈铁片",
+      "deck": "resource",
+      "shape": "compact",
+      "tags": ["resource", "material_raw", "metal"],
+      "color": "#5a5048"
+    },
+    {
+      "id": "mushroom_cap",
+      "name": "变异菇帽",
+      "deck": "resource",
+      "shape": "compact",
+      "tags": ["resource", "food", "organic"],
+      "color": "#4a4238"
+    },
+    {
+      "id": "reed_stalk",
+      "name": "芦苇杆",
+      "deck": "resource",
+      "shape": "compact",
+      "tags": ["resource", "material_raw", "fiber"],
+      "color": "#4a5a40"
+    },
+    {
+      "id": "tar_blob",
+      "name": "沥青块",
+      "deck": "resource",
+      "shape": "compact",
+      "tags": ["resource", "material_raw", "chemical"],
+      "color": "#3a3830"
+    },
+    {
+      "id": "glass_shard",
+      "name": "玻璃碎",
+      "deck": "resource",
+      "shape": "compact",
+      "tags": ["resource", "material_raw"],
+      "color": "#6a7a80"
+    },
+    {
+      "id": "charcoal",
+      "name": "木炭",
+      "deck": "resource",
+      "shape": "compact",
+      "tags": ["resource", "material", "wood"],
+      "color": "#3a3830"
+    },
+    {
+      "id": "rope_coil",
+      "name": "粗麻绳",
+      "deck": "resource",
+      "shape": "compact",
+      "tags": ["resource", "material", "fiber"],
+      "color": "#5a5040"
+    },
+    {
+      "id": "compost",
+      "name": "堆肥",
+      "deck": "resource",
+      "shape": "compact",
+      "tags": ["resource", "material", "organic", "soil"],
+      "color": "#4a4030"
+    },
+    {
+      "id": "resin_glue",
+      "name": "树脂胶",
+      "deck": "resource",
+      "shape": "compact",
+      "tags": ["resource", "material", "chemical"],
+      "color": "#5a4a30"
+    },
+    {
+      "id": "scrap_bundle",
+      "name": "零件捆",
+      "deck": "resource",
+      "shape": "compact",
+      "tags": ["resource", "material", "metal"],
+      "color": "#5a5550"
+    },
+    {
+      "id": "plank_bundle",
+      "name": "木板捆",
+      "deck": "resource",
+      "shape": "compact",
+      "tags": ["resource", "material", "wood"],
+      "color": "#6a5a40"
+    },
+    {
+      "id": "salt_crystal",
+      "name": "盐晶",
+      "deck": "resource",
+      "shape": "compact",
+      "tags": ["resource", "material", "chemical"],
+      "color": "#8a9a9c"
+    },
+    {
+      "id": "tanned_hide",
+      "name": "鞣制皮",
+      "deck": "resource",
+      "shape": "compact",
+      "tags": ["resource", "material", "fiber"],
+      "color": "#5a4a38"
+    },
+    {
+      "id": "brick_clay",
+      "name": "粘土砖",
+      "deck": "resource",
+      "shape": "compact",
+      "tags": ["resource", "material"],
+      "color": "#8a6a50"
+    },
+    {
+      "id": "nail_box",
+      "name": "钉盒",
+      "deck": "resource",
+      "shape": "compact",
+      "tags": ["resource", "material", "metal"],
+      "color": "#5a5048"
+    },
+    {
+      "id": "iron_ingot",
+      "name": "铁锭",
+      "deck": "resource",
+      "shape": "compact",
+      "tags": ["resource", "material_refined", "metal"],
+      "color": "#5a5a60"
+    },
+    {
+      "id": "wire_spool",
+      "name": "铁丝卷",
+      "deck": "resource",
+      "shape": "compact",
+      "tags": ["resource", "material_refined", "metal"],
+      "color": "#6a6a68"
+    },
+    {
+      "id": "iron_plate",
+      "name": "铁板",
+      "deck": "resource",
+      "shape": "compact",
+      "tags": ["resource", "material_refined", "metal"],
+      "color": "#5a5a58"
+    },
+    {
+      "id": "canvas_strip",
+      "name": "帆布条",
+      "deck": "resource",
+      "shape": "compact",
+      "tags": ["resource", "material_refined", "fiber"],
+      "color": "#6a5a48"
+    },
+    {
+      "id": "preserved_food",
+      "name": "防腐口粮",
+      "deck": "resource",
+      "shape": "compact",
+      "tags": ["resource", "food"],
+      "color": "#5a4a32"
+    },
+    {
+      "id": "fertilizer",
+      "name": "变异肥料",
+      "deck": "resource",
+      "shape": "compact",
+      "tags": ["resource", "material_refined", "soil"],
+      "color": "#4a5a30"
+    },
+    {
+      "id": "acid_vial",
+      "name": "强酸瓶",
+      "deck": "resource",
+      "shape": "compact",
+      "tags": ["resource", "material_refined", "chemical"],
+      "color": "#5a6a40"
+    },
+    {
+      "id": "fuel_can",
+      "name": "燃料罐",
+      "deck": "resource",
+      "shape": "compact",
+      "tags": ["resource", "material_refined", "chemical"],
+      "color": "#6a4030"
+    },
+    {
+      "id": "blueprint_chip",
+      "name": "蓝图芯片",
+      "deck": "resource",
+      "shape": "compact",
+      "tags": ["resource", "material_refined"],
+      "color": "#4a5a6a"
+    },
+    {
+      "id": "wheat_flour",
+      "name": "麦粉",
+      "deck": "resource",
+      "shape": "compact",
+      "tags": ["resource", "food", "organic"],
+      "color": "#c8b890"
+    },
+    {
+      "id": "bread_crumbs",
+      "name": "面包屑",
+      "deck": "resource",
+      "shape": "compact",
+      "tags": ["resource", "food"],
+      "color": "#8a7a58"
+    },
+    {
+      "id": "fried_egg",
+      "name": "煎蛋",
+      "deck": "resource",
+      "shape": "compact",
+      "tags": ["resource", "food"],
+      "color": "#d8c878"
+    },
+    {
+      "id": "cheese",
+      "name": "奶酪",
+      "deck": "resource",
+      "shape": "compact",
+      "tags": ["resource", "food"],
+      "color": "#c8b060"
+    },
+    {
+      "id": "smoked_meat",
+      "name": "熏肉",
+      "deck": "resource",
+      "shape": "compact",
+      "tags": ["resource", "food"],
+      "color": "#6a4038"
+    },
+    {
+      "id": "mushroom_soup",
+      "name": "蘑菇汤",
+      "deck": "resource",
+      "shape": "compact",
+      "tags": ["resource", "food"],
+      "color": "#5a5040"
+    },
+    {
+      "id": "mash_feed",
+      "name": "麦麸饲料",
+      "deck": "resource",
+      "shape": "compact",
+      "tags": ["resource", "feed"],
+      "color": "#6a5a38"
+    },
+    {
+      "id": "bone_meal",
+      "name": "骨粉",
+      "deck": "resource",
+      "shape": "compact",
+      "tags": ["resource", "feed", "organic"],
+      "color": "#8a8a80"
+    },
+    {
+      "id": "protein_pellet",
+      "name": "蛋白颗粒",
+      "deck": "resource",
+      "shape": "compact",
+      "tags": ["resource", "feed"],
+      "color": "#5a5040"
+    },
+    {
+      "id": "iron_wheat_crop",
+      "name": "铁根麦",
+      "deck": "resource",
+      "shape": "compact",
+      "tags": ["resource", "crop", "food", "organic"],
+      "color": "#6a6840"
+    },
+    {
+      "id": "crop_sun_pod",
+      "name": "锈向日葵盘",
+      "deck": "resource",
+      "shape": "compact",
+      "tags": ["resource", "crop", "organic"],
+      "color": "#8a7a30"
+    },
+    {
+      "id": "crop_cactus_pad",
+      "name": "刺掌片",
+      "deck": "resource",
+      "shape": "compact",
+      "tags": ["resource", "crop", "material_raw"],
+      "color": "#4a6a40"
+    },
+    {
+      "id": "chick_rust",
+      "name": "锈羽雏鸡",
+      "deck": "resource",
+      "shape": "standard",
+      "tags": ["animal", "poultry", "juvenile"],
+      "color": "#8a7a50"
+    },
+    {
+      "id": "hen_rust",
+      "name": "锈羽母鸡",
+      "deck": "resource",
+      "shape": "standard",
+      "tags": ["animal", "poultry"],
+      "color": "#7a6a48"
+    },
+    {
+      "id": "goat_scrap",
+      "name": "废土山羊",
+      "deck": "resource",
+      "shape": "standard",
+      "tags": ["animal", "livestock"],
+      "color": "#6a5a48"
+    },
+    {
+      "id": "rabbit_iron",
+      "name": "铁耳兔",
+      "deck": "resource",
+      "shape": "standard",
+      "tags": ["animal", "livestock"],
+      "color": "#8a8a88"
+    },
+    {
+      "id": "pig_mutant",
+      "name": "变异猪",
+      "deck": "resource",
+      "shape": "standard",
+      "tags": ["animal", "livestock"],
+      "color": "#8a6a70"
+    },
+    {
+      "id": "beetle_rust",
+      "name": "锈壳虫",
+      "deck": "resource",
+      "shape": "standard",
+      "tags": ["animal", "poultry"],
+      "color": "#5a5040"
+    },
+    {
+      "id": "egg_mutant",
+      "name": "变异蛋",
+      "deck": "resource",
+      "shape": "compact",
+      "tags": ["resource", "animal_product", "food", "organic"],
+      "color": "#c8c0a0"
+    },
+    {
+      "id": "goat_milk",
+      "name": "山羊奶",
+      "deck": "resource",
+      "shape": "compact",
+      "tags": ["resource", "animal_product", "food"],
+      "color": "#e8e8e0"
+    },
+    {
+      "id": "raw_meat",
+      "name": "生肉",
+      "deck": "resource",
+      "shape": "compact",
+      "tags": ["resource", "animal_product", "food", "organic"],
+      "color": "#8a5048"
+    },
+    {
+      "id": "animal_hide",
+      "name": "兽皮",
+      "deck": "resource",
+      "shape": "compact",
+      "tags": ["resource", "animal_product", "material_raw", "fiber"],
+      "color": "#6a5a48"
+    },
+    {
+      "id": "feather_clump",
+      "name": "羽簇",
+      "deck": "resource",
+      "shape": "compact",
+      "tags": ["resource", "animal_product", "material_raw", "fiber"],
+      "color": "#9a9080"
+    },
+    {
+      "id": "lard_tin",
+      "name": "脂罐",
+      "deck": "resource",
+      "shape": "compact",
+      "tags": ["resource", "animal_product", "chemical", "food"],
+      "color": "#d8c8a0"
+    },
+    {
+      "id": "insect_glue",
+      "name": "虫胶",
+      "deck": "resource",
+      "shape": "compact",
+      "tags": ["resource", "animal_product", "chemical"],
+      "color": "#6a5a30"
     }
   ]
 }

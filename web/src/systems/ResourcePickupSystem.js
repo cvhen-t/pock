@@ -26,6 +26,10 @@ export class ResourcePickupSystem {
         const tags = card.definition.tags ?? [];
         if (tags.includes('food'))
             delta.food = 1;
+        else if (tags.includes('water'))
+            delta.water = 1;
+        else if (tags.includes('currency'))
+            delta.caps = 1;
         else
             return;
         this.onCollect(delta, card);
@@ -33,7 +37,12 @@ export class ResourcePickupSystem {
         this.scene.events.emit('resource-collected', { cardId: card.definition.id, delta });
     }
     findTopFoodCard(wx, wy) {
-        const cards = this.scene.children.list.filter((c) => c instanceof GameCard && (c.definition.tags ?? []).includes('food'));
+        const cards = this.scene.children.list.filter((c) => {
+            if (!(c instanceof GameCard))
+                return false;
+            const t = c.definition.tags ?? [];
+            return t.includes('food') || t.includes('water') || t.includes('currency');
+        });
         let best;
         let bestDepth = -1;
         for (const card of cards) {

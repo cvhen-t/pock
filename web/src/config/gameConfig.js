@@ -2,10 +2,13 @@ import BootScene from '../scenes/BootScene';
 import PreloaderScene from '../scenes/PreloaderScene';
 import GameScene from '../scenes/GameScene';
 export const REGISTRY = {
-    MOON_SECONDS: 'moonSeconds',
-    MOON_INDEX: 'moonIndex',
-    MOON_REMAINING: 'moonRemaining',
+    DAY_SECONDS: 'daySeconds',
+    DAY_INDEX: 'dayIndex',
+    DAY_REMAINING: 'dayRemaining',
+    TRADE_OPEN: 'tradeOpen',
 };
+/** Real-time seconds per in-game day. */
+export const SECONDS_PER_DAY = 120;
 const MIN_WIDTH = 320;
 const MIN_HEIGHT = 480;
 /** Read #game-container (or window) size for initial canvas dimensions. */

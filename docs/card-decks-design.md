@@ -19,7 +19,20 @@
 
 ---
 
-## 资源卡组 `deck_resource`（12 张）
+## 野外卡组 `deck_wilderness`（4 张）
+
+| id | 名称 | shape | 产出 | 说明 |
+|----|------|-------|------|------|
+| wild_soil_mound | 沃土丘 | wide | 土块 | 采尽 12 次，见 [wilderness-resource-nodes.md](wilderness-resource-nodes.md) |
+| wild_ore_vein | 矿脉 | standard | 零件 | 采尽 10 次 |
+| wild_tree_grove | 枯木林 | standard | 木板 | 采尽 14 次 |
+| wild_lake | 荒原湖泊 | wide | 浑水 | 采尽 12 次 |
+
+资源卡组新增 **`soil_clump` 土块**（compact，`soil` 标签）。
+
+---
+
+## 资源卡组 `deck_resource`（13 张）
 
 | id | 名称 | shape | 标签 | 说明 |
 |----|------|-------|------|------|

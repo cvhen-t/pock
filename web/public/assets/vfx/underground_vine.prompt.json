@@ -1,0 +1,12 @@
+{
+  "styleDoc": "docs/art-style-prompt.md",
+  "assetType": "vfx",
+  "positive": "post-apocalyptic survival card game VFX spritesheet, horizontal strip 8 frames, underground rust thorn vine emerging from cracked soil, dark muted green and brown, hand-painted texture, semi-realistic, top-down slight angle, no neon, no text",
+  "negative": "neon, cyberpunk, anime, chibi, bright colors, text, UI, characters",
+  "aspectRatio": "3:1",
+  "frameWidth": 72,
+  "frameHeight": 96,
+  "frameCount": 8,
+  "tool": "bake-attack-vfx",
+  "notes": "锈刺藤攻击动画；缺 PNG 时回退程序帧"
+}

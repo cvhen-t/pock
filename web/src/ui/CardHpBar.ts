@@ -6,16 +6,21 @@ import type GameCard from '../objects/GameCard';
 export class CardHpBar {
   private bg: Phaser.GameObjects.Rectangle;
   private fill: Phaser.GameObjects.Rectangle;
+  private readonly onRotated: (card: GameCard) => void;
 
   constructor(
     private readonly card: GameCard,
-    scene: Phaser.Scene,
+    private readonly scene: Phaser.Scene,
   ) {
     const w = card.cardWidth - 8;
     this.bg = scene.add.rectangle(0, 0, w, 4, 0x1a1612, 0.9);
     this.fill = scene.add.rectangle(0, 0, w, 4, 0x6a6560, 1);
     card.add([this.bg, this.fill]);
     this.layout();
+    this.onRotated = (c) => {
+      if (c === card) this.layout();
+    };
+    scene.events.on('card-rotated', this.onRotated);
   }
 
   setRatio(ratio: number, fillColor?: number): void {
@@ -35,15 +40,18 @@ export class CardHpBar {
   }
 
   destroy(): void {
+    this.scene.events.off('card-rotated', this.onRotated);
     this.bg.destroy();
     this.fill.destroy();
   }
 
   private layout(): void {
+    const w = this.card.cardWidth - 8;
     const y = this.card.cardHeight / 2 - 6;
     const fillW = this.fill.width;
+    this.bg.width = w;
     this.bg.setPosition(0, y);
-    this.fill.setPosition(-(this.card.cardWidth - 8) / 2 + fillW / 2, y);
+    this.fill.setPosition(-w / 2 + fillW / 2, y);
     this.bg.setDepth(20);
     this.fill.setDepth(21);
   }

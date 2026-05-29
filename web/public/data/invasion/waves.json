@@ -5,26 +5,26 @@
   "firstSpawnDelaySec": 18,
   "tiers": [
     {
-      "moonMin": 1,
-      "moonMax": 3,
+      "dayMin": 1,
+      "dayMax": 3,
       "spawnIntervalSec": 28,
       "maxAlive": 3,
       "pool": [{ "enemyId": "mutant_hound", "weight": 100 }]
     },
     {
-      "moonMin": 4,
-      "moonMax": 6,
+      "dayMin": 4,
+      "dayMax": 6,
       "spawnIntervalSec": 24,
       "maxAlive": 4,
       "pool": [
         { "enemyId": "mutant_hound", "weight": 70 },
         { "enemyId": "rad_rat", "weight": 30 }
       ],
-      "surgeOnMoonEnd": { "count": 2, "leadSec": 15 }
+      "surgeOnDayEnd": { "count": 2, "leadSec": 15 }
     },
     {
-      "moonMin": 7,
-      "moonMax": 9,
+      "dayMin": 7,
+      "dayMax": 9,
       "spawnIntervalSec": 22,
       "maxAlive": 5,
       "pool": [
@@ -32,11 +32,11 @@
         { "enemyId": "rad_rat", "weight": 25 },
         { "enemyId": "scavenger", "weight": 25 }
       ],
-      "surgeOnMoonEnd": { "count": 3, "leadSec": 15 }
+      "surgeOnDayEnd": { "count": 3, "leadSec": 15 }
     },
     {
-      "moonMin": 10,
-      "moonMax": 99,
+      "dayMin": 10,
+      "dayMax": 99,
       "spawnIntervalSec": 18,
       "maxAlive": 6,
       "pool": [
@@ -46,7 +46,7 @@
         { "enemyId": "spore_beast", "weight": 15 },
         { "enemyId": "alpha_hound", "weight": 5 }
       ],
-      "surgeOnMoonEnd": { "count": 4, "leadSec": 12 }
+      "surgeOnDayEnd": { "count": 4, "leadSec": 12 }
     }
   ]
 }

@@ -11,6 +11,16 @@
       "manualUnlock": "manual_mutant_01"
     },
     {
+      "id": "recipe_blight_plot_soil",
+      "inputs": [
+        { "tag": "survivor", "count": 1 },
+        { "cardId": "soil_clump", "count": 3 }
+      ],
+      "output": { "cardId": "blight_plot", "count": 1 },
+      "workSeconds": 8,
+      "manualUnlock": "manual_mutant_01"
+    },
+    {
       "id": "recipe_stack_survivor_bush",
       "inputs": [
         { "tag": "survivor", "count": 1 },

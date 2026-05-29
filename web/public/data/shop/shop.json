@@ -1,0 +1,53 @@
+{
+  "categories": [
+    { "id": "resource", "name": "资源" },
+    { "id": "weapon", "name": "武器" },
+    { "id": "defense", "name": "防御" },
+    { "id": "plant", "name": "种植" },
+    { "id": "facility", "name": "设施" },
+    { "id": "ranch", "name": "畜牧" }
+  ],
+  "buyListings": [
+    { "id": "buy_canned_food", "category": "resource", "cardId": "canned_food", "count": 1, "costCaps": 2 },
+    { "id": "buy_water_dirty", "category": "resource", "cardId": "water_dirty", "count": 2, "costCaps": 2 },
+    { "id": "buy_water_clean", "category": "resource", "cardId": "water_clean", "count": 1, "costCaps": 3 },
+    { "id": "buy_scrap", "category": "resource", "cardId": "scrap", "count": 1, "costCaps": 2 },
+    { "id": "buy_wood_plank", "category": "resource", "cardId": "wood_plank", "count": 1, "costCaps": 2 },
+    { "id": "buy_soil_clump", "category": "resource", "cardId": "soil_clump", "count": 1, "costCaps": 2 },
+    { "id": "buy_raw_timber", "category": "resource", "cardId": "raw_timber", "count": 2, "costCaps": 2 },
+    { "id": "buy_rusty_machete", "category": "weapon", "cardId": "rusty_machete", "count": 1, "costCaps": 4 },
+    { "id": "buy_scrap_bow", "category": "weapon", "cardId": "scrap_bow", "count": 1, "costCaps": 5 },
+    { "id": "buy_molotov", "category": "weapon", "cardId": "molotov", "count": 1, "costCaps": 3 },
+    { "id": "buy_trap_wire", "category": "weapon", "cardId": "trap_wire", "count": 1, "costCaps": 3 },
+    { "id": "buy_fence_iron", "category": "defense", "cardId": "fence_iron", "count": 1, "costCaps": 4 },
+    { "id": "buy_barricade_wood", "category": "defense", "cardId": "barricade_wood", "count": 1, "costCaps": 3 },
+    { "id": "buy_spike_strip", "category": "defense", "cardId": "spike_strip", "count": 1, "costCaps": 4 },
+    { "id": "buy_barbed_roll", "category": "defense", "cardId": "barbed_roll", "count": 1, "costCaps": 2 },
+    { "id": "buy_sandbag_wall", "category": "defense", "cardId": "sandbag_wall", "count": 1, "costCaps": 5 },
+    { "id": "buy_seed_thornvine", "category": "plant", "cardId": "seed_thornvine", "count": 1, "costCaps": 5 },
+    { "id": "buy_seed_spore", "category": "plant", "cardId": "seed_spore", "count": 1, "costCaps": 6 },
+    { "id": "buy_blight_plot", "category": "plant", "cardId": "blight_plot", "count": 1, "costCaps": 4 },
+    { "id": "buy_iron_wheat_seed", "category": "plant", "cardId": "iron_wheat_seed", "count": 1, "costCaps": 3 },
+    { "id": "buy_facility_workshop", "category": "facility", "cardId": "facility_workshop", "count": 1, "costCaps": 6 },
+    { "id": "buy_facility_kitchen", "category": "facility", "cardId": "facility_kitchen", "count": 1, "costCaps": 5 },
+    { "id": "buy_facility_well", "category": "facility", "cardId": "facility_well", "count": 1, "costCaps": 5 },
+    { "id": "buy_facility_design", "category": "facility", "cardId": "facility_design_bureau", "count": 1, "costCaps": 8 },
+    { "id": "buy_facility_greenhouse", "category": "facility", "cardId": "facility_greenhouse", "count": 1, "costCaps": 7, "dayMin": 3 },
+    { "id": "buy_facility_smelter", "category": "facility", "cardId": "facility_smelter", "count": 1, "costCaps": 7 },
+    { "id": "buy_hen_rust", "category": "ranch", "cardId": "hen_rust", "count": 1, "costCaps": 5, "dayMin": 3 },
+    { "id": "buy_goat_scrap", "category": "ranch", "cardId": "goat_scrap", "count": 1, "costCaps": 6 },
+    { "id": "buy_rabbit_iron", "category": "ranch", "cardId": "rabbit_iron", "count": 1, "costCaps": 4 },
+    { "id": "buy_beetle_rust", "category": "ranch", "cardId": "beetle_rust", "count": 1, "costCaps": 3, "dayMin": 4 }
+  ],
+  "sellPrices": [
+    { "cardId": "scrap", "caps": 1 },
+    { "cardId": "wood_plank", "caps": 1 },
+    { "cardId": "soil_clump", "caps": 1 },
+    { "cardId": "berry_mutant", "caps": 1 },
+    { "cardId": "water_dirty", "caps": 1 },
+    { "tag": "food", "caps": 1 },
+    { "tag": "material", "caps": 1 },
+    { "tag": "weapon", "caps": 2 },
+    { "tag": "facility", "caps": 3 }
+  ]
+}

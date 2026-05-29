@@ -1,0 +1,12 @@
+{
+  "styleDoc": "docs/art-style-prompt.md",
+  "assetType": "vfx",
+  "positive": "post-apocalyptic survival game VFX spritesheet, 6 frames horizontal, dark green spore puff muzzle flash travel and splash, muted wasteland palette, hand-painted, no neon",
+  "negative": "neon, cyberpunk, anime, bright colors, text",
+  "aspectRatio": "7:1",
+  "frameWidth": 72,
+  "frameHeight": 64,
+  "frameCount": 6,
+  "tool": "bake-attack-vfx",
+  "notes": "孢子弹匣菇射击动画"
+}

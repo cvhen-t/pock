@@ -1,4 +1,10 @@
-const CARD_CACHE_KEYS = ['cards_resource', 'cards_attack', 'cards_defense'];
+const CARD_CACHE_KEYS = [
+    'cards_resource',
+    'cards_attack',
+    'cards_defense',
+    'cards_wilderness',
+    'cards_facility',
+];
 export function collectCardsFromCache(cache) {
     const all = [];
     for (const key of CARD_CACHE_KEYS) {
@@ -12,4 +18,6 @@ export const CARD_JSON_PATHS = {
     cards_resource: 'data/cards/deck_resource.json',
     cards_attack: 'data/cards/deck_attack.json',
     cards_defense: 'data/cards/deck_defense.json',
+    cards_wilderness: 'data/cards/deck_wilderness.json',
+    cards_facility: 'data/cards/deck_facility.json',
 };

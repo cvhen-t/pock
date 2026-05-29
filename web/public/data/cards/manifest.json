@@ -2,6 +2,8 @@
   "files": [
     "deck_resource.json",
     "deck_attack.json",
-    "deck_defense.json"
+    "deck_defense.json",
+    "deck_wilderness.json",
+    "deck_facility.json"
   ]
 }

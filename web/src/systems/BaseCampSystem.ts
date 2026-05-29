@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 
-import type { CardStack } from './CardStackSystem';
+import type { CardStack, CardStackSystem } from './CardStackSystem';
+import { consumeCardQuantity } from '../core/cardQuantity';
 import { CardHpBar } from '../ui/CardHpBar';
 import GameCard from '../objects/GameCard';
 
@@ -10,7 +11,7 @@ export interface BaseCoreEffect {
   contactDamage?: number;
   contactCooldownSec?: number;
   healPerScrap?: number;
-  moonRegen?: number;
+  dayRegen?: number;
 }
 
 /**
@@ -29,7 +30,7 @@ export class BaseCampSystem {
 
   private healPerScrap = 2;
 
-  private moonRegen = 2;
+  private dayRegen = 2;
 
   private hpBar?: CardHpBar;
 
@@ -39,8 +40,12 @@ export class BaseCampSystem {
 
   constructor(private readonly scene: Phaser.Scene) {
     scene.events.on('card-spawned', (c: GameCard) => this.tryRegister(c));
-    scene.events.on('moon-end', () => this.onMoonEnd());
+    scene.events.on('day-end', () => this.onDayEnd());
     scene.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.destroy());
+
+    for (const child of scene.children.list) {
+      if (child instanceof GameCard) this.tryRegister(child);
+    }
   }
 
   destroy(): void {
@@ -63,7 +68,7 @@ export class BaseCampSystem {
     this.contactDamage = effect?.contactDamage ?? 1;
     this.contactCooldownMs = (effect?.contactCooldownSec ?? 2) * 1000;
     this.healPerScrap = effect?.healPerScrap ?? 2;
-    this.moonRegen = effect?.moonRegen ?? 2;
+    this.dayRegen = effect?.dayRegen ?? (effect as { moonRegen?: number })?.moonRegen ?? 2;
     this.hpBar = new CardHpBar(card, this.scene);
     this.refreshHpBar();
     this.scene.events.emit('base-registered', this.card);
@@ -130,16 +135,14 @@ export class BaseCampSystem {
   }
 
   /** Consume scrap stacked on base to repair. */
-  tryRepairFromStack(stack: CardStack, removeCard: (c: GameCard) => boolean): boolean {
+  tryRepairFromStack(stack: CardStack, stacks: CardStackSystem): boolean {
     if (!this.card || stack.base !== this.card) return false;
 
     const scrap = stack.members.find((m) => m.definition.id === 'scrap');
     if (!scrap) return false;
 
-    if (!removeCard(scrap)) return false;
-
-    stack.members = stack.members.filter((m) => m !== scrap);
-    scrap.destroy();
+    consumeCardQuantity(scrap, 1, stacks);
+    stack.members = stack.members.filter((m) => m.active);
     const healed = this.heal(this.healPerScrap);
     if (healed) {
       this.scene.events.emit('base-repaired', { amount: this.healPerScrap });
@@ -147,11 +150,11 @@ export class BaseCampSystem {
     return healed;
   }
 
-  private onMoonEnd(): void {
+  private onDayEnd(): void {
     if (!this.isActive) return;
-    if (this.moonRegen > 0) {
-      this.heal(this.moonRegen);
-      this.scene.events.emit('base-moon-regen', { amount: this.moonRegen });
+    if (this.dayRegen > 0) {
+      this.heal(this.dayRegen);
+      this.scene.events.emit('base-day-regen', { amount: this.dayRegen });
     }
   }
 

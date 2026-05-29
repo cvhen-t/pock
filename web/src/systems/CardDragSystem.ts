@@ -2,7 +2,12 @@ import Phaser from 'phaser';
 
 import GameCard, { boardDepthFromY } from '../objects/GameCard';
 
+import { canRotateBoardCard } from '../core/cardRotate';
+import { isQuantityStackable } from '../core/cardQuantity';
+import { describeStackDrop } from '../core/stackOutcomePreview';
 import { clampCardCenter, clampDraggedCards, clampStackToPlayfield } from '../ui/playfieldClamp';
+import { tweenDragPickup } from '../ui/dragFx';
+import type { StackDropHint } from '../ui/StackDropHint';
 import type { CardStack, CardStackSystem } from './CardStackSystem';
 
 const DRAG_THRESHOLD = 6;
@@ -30,6 +35,7 @@ interface PendingPress {
   pileMode: boolean;
   originX: number;
   originY: number;
+  button: number;
 }
 
 export interface CardDropResult {
@@ -38,7 +44,16 @@ export interface CardDropResult {
   targetName?: string;
   wholePile: boolean;
   storedInHand?: boolean;
+  storedInActionBar?: boolean;
 }
+
+export type SellDropFn = (card: GameCard, sx: number, sy: number) => boolean;
+
+export type SellHintFn = (
+  card: GameCard,
+  wx: number,
+  wy: number,
+) => import('../core/stackOutcomePreview').StackDropPreview | null;
 
 export type StoreInHandFn = (
   card: GameCard,
@@ -57,15 +72,27 @@ export class CardDragSystem {
 
   private pending: PendingPress | null = null;
 
-  private lastTapMs = 0;
+  private lastUpMs = 0;
 
-  private lastTapStackId: string | null = null;
+  private lastUpCard: GameCard | null = null;
 
   private readonly boundSync = () => this.syncDragState();
+
+  private readonly boundContextMenu = (e: Event) => e.preventDefault();
 
   private storeInHand?: StoreInHandFn;
 
   private getPlayfield?: () => Phaser.Geom.Rectangle | undefined;
+
+  private dropHint?: StackDropHint;
+
+  private sellDrop?: SellDropFn;
+
+  private sellHint?: SellHintFn;
+
+  private dropToActionBar?: (card: GameCard, sx: number, sy: number) => boolean;
+
+  private hoverScreen?: (sx: number, sy: number) => void;
 
   constructor(
     private readonly scene: Phaser.Scene,
@@ -82,12 +109,14 @@ export class CardDragSystem {
     scene.events.on(Phaser.Scenes.Events.UPDATE, this.boundSync);
     scene.events.once(Phaser.Scenes.Events.SHUTDOWN, this.destroy, this);
     scene.game.events.on(Phaser.Core.Events.BLUR, this.forceRelease, this);
+    scene.game.canvas.addEventListener('contextmenu', this.boundContextMenu);
   }
 
   destroy(): void {
     this.forceRelease();
     this.scene.events.off(Phaser.Scenes.Events.UPDATE, this.boundSync);
     this.scene.game.events.off(Phaser.Core.Events.BLUR, this.forceRelease, this);
+    this.scene.game.canvas.removeEventListener('contextmenu', this.boundContextMenu);
   }
 
   registerCard(card: GameCard): void {
@@ -102,12 +131,34 @@ export class CardDragSystem {
     this.storeInHand = handler;
   }
 
+  setDropToActionBar(handler: (card: GameCard, sx: number, sy: number) => boolean): void {
+    this.dropToActionBar = handler;
+  }
+
+  setHoverScreen(handler: (sx: number, sy: number) => void): void {
+    this.hoverScreen = handler;
+  }
+
   setPlayfieldBounds(getter: () => Phaser.Geom.Rectangle | undefined): void {
     this.getPlayfield = getter;
   }
 
+  setDropHint(hint: StackDropHint): void {
+    this.dropHint = hint;
+  }
+
+  setSellDrop(handler: SellDropFn): void {
+    this.sellDrop = handler;
+  }
+
+  setSellHint(handler: SellHintFn): void {
+    this.sellHint = handler;
+  }
+
   private forceRelease(): void {
     this.pending = null;
+    this.dropHint?.hide();
+    this.hoverScreen?.(-1, -1);
     if (this.active) this.finishDrag();
   }
 
@@ -163,6 +214,8 @@ export class CardDragSystem {
   private onPointerDown(pointer: Phaser.Input.Pointer): void {
     if (!pointer.isDown) return;
 
+    if (pointer.button !== 0 && pointer.button !== 2) return;
+
     if (this.blocksScreenPoint?.(pointer.x, pointer.y)) return;
 
     if (this.active) {
@@ -178,24 +231,24 @@ export class CardDragSystem {
     }
 
     if ((hit.leader.definition.tags ?? []).includes('base')) {
-      this.scene.events.emit('drag-toast', '大本营无法移动');
+      if (pointer.button === 0) {
+        this.scene.events.emit('drag-toast', '大本营无法移动');
+      }
       return;
     }
 
-    const now = this.scene.time.now;
-    const isDoubleTap =
-      hit.stack.members.length > 0 &&
-      hit.stack.id === this.lastTapStackId &&
-      now - this.lastTapMs < DOUBLE_TAP_MS;
+    const canWholeStackDrag =
+      hit.stack.members.length > 0 ||
+      (hit.leader.quantity > 1 && isQuantityStackable(hit.leader.definition));
 
-    this.lastTapMs = now;
-    this.lastTapStackId = hit.stack.id;
+    const pileMode = pointer.button === 2 && canWholeStackDrag;
 
     this.pending = {
       hit,
-      pileMode: isDoubleTap,
+      pileMode,
       originX: x,
       originY: y,
+      button: pointer.button,
     };
   }
 
@@ -219,27 +272,54 @@ export class CardDragSystem {
     this.applyDrag(pointer);
   }
 
-  private onPointerUp(): void {
+  private onPointerUp(pointer: Phaser.Input.Pointer): void {
+    if (this.pending && !this.active && pointer.button === 0) {
+      const { hit } = this.pending;
+      const card = hit.leader;
+      const now = this.scene.time.now;
+      const isRotateTap =
+        this.lastUpCard === card &&
+        now - this.lastUpMs < DOUBLE_TAP_MS &&
+        canRotateBoardCard(hit.stack, card);
+
+      this.lastUpMs = now;
+      this.lastUpCard = card;
+
+      if (isRotateTap) {
+        card.toggleRotation();
+        this.clampBoardCard(card);
+        this.scene.events.emit('drag-toast', '已旋转');
+      } else {
+        this.scene.events.emit('board-card-tap', { card });
+      }
+    }
     this.pending = null;
     if (this.active) this.finishDrag();
   }
 
   private startDrag(press: PendingPress, wx: number, wy: number): void {
     const { hit, pileMode } = press;
-    const { stack, leader } = hit;
+    const { stack } = hit;
+    let leader = hit.leader;
 
     let mode: DragMode;
     let cards: GameCard[];
 
-    if (pileMode) {
+    if (pileMode && stack.members.length > 0) {
       mode = 'pile';
       cards = [stack.base, ...stack.members];
-    } else if (stack.members.length === 0) {
-      mode = 'solo';
-      cards = [leader];
-    } else {
+    } else if (stack.members.length > 0) {
       mode = 'top';
       this.stacks.detachCardForDrag(leader);
+      cards = [leader];
+    } else if (leader.quantity > 1 && isQuantityStackable(leader.definition)) {
+      mode = 'solo';
+      if (!pileMode) {
+        leader = this.splitQuantityForDrag(leader);
+      }
+      cards = [leader];
+    } else {
+      mode = 'solo';
       cards = [leader];
     }
 
@@ -261,12 +341,30 @@ export class CardDragSystem {
     for (const c of cards) {
       c.setDepth(1000 + cards.indexOf(c));
       this.scene.tweens.killTweensOf(c);
-      c.setScale(1.06);
+      tweenDragPickup(this.scene, c, 1.06);
     }
 
     if (pileMode) {
-      this.scene.events.emit('drag-toast', '整摞拖动');
+      this.scene.events.emit(
+        'drag-toast',
+        stack.members.length > 0 ? '右键：整摞拖动' : '右键：整组拖动',
+      );
     }
+  }
+
+  /** Peel one resource card off a quantity stack for solo drag. */
+  private splitQuantityForDrag(source: GameCard): GameCard {
+    const sourceStack = this.stacks.getStackAt(source);
+    source.setQuantity(source.quantity - 1);
+    const split = new GameCard(this.scene, source.x, source.y, source.definition);
+    split.setQuantity(1);
+    split.setDepth(source.depth);
+    this.stacks.registerBase(split);
+    this.registerCard(split);
+    if (sourceStack) {
+      this.scene.events.emit('stack-changed', sourceStack);
+    }
+    return split;
   }
 
   private applyDrag(pointer: Phaser.Input.Pointer): void {
@@ -282,6 +380,8 @@ export class CardDragSystem {
       drag.stack.base.x = baseStart.x + dx;
       drag.stack.base.y = baseStart.y + dy;
       this.clampActiveDrag(drag);
+      this.updateDropHint(drag.leader);
+      this.hoverScreen?.(pointer.x, pointer.y);
       return;
     }
 
@@ -295,6 +395,30 @@ export class CardDragSystem {
       this.stacks.layoutStack(stack);
     }
     this.clampActiveDrag(drag);
+    this.updateDropHint(drag.leader);
+    this.hoverScreen?.(pointer.x, pointer.y);
+  }
+
+  private updateDropHint(dragged: GameCard): void {
+    if (!this.dropHint) return;
+
+    const sellPreview = this.sellHint?.(dragged, dragged.x, dragged.y);
+    if (sellPreview) {
+      this.dropHint.show(dragged.x, dragged.y, sellPreview);
+      return;
+    }
+
+    const target = this.stacks.findCardUnder(dragged.x, dragged.y, dragged);
+    if (!target) {
+      this.dropHint.hide();
+      return;
+    }
+    const preview = describeStackDrop(this.stacks, dragged, target);
+    if (!preview) {
+      this.dropHint.hide();
+      return;
+    }
+    this.dropHint.show(target.x, target.y, preview);
   }
 
   private clampActiveDrag(drag: ActiveDrag): void {
@@ -308,6 +432,8 @@ export class CardDragSystem {
     if (!drag) return;
 
     this.active = null;
+    this.dropHint?.hide();
+    this.hoverScreen?.(-1, -1);
 
     for (const c of drag.cards) {
       this.scene.tweens.killTweensOf(c);
@@ -318,6 +444,17 @@ export class CardDragSystem {
     const card = drag.leader;
     const wholePile = drag.mode === 'pile';
 
+    const pointer = this.scene.input.activePointer;
+
+    if (this.sellDrop?.(card, pointer.x, pointer.y)) {
+      this.stacks.removeCardFromPlay(card);
+      card.destroy();
+      this.cards.delete(card);
+      this.stacks.reconcile(this.cards);
+      this.onDrop({ card, stacked: false, wholePile });
+      return;
+    }
+
     if (wholePile) {
       const stack = this.stacks.getStackAt(card);
       if (stack) this.stacks.layoutStack(stack);
@@ -327,10 +464,15 @@ export class CardDragSystem {
       return;
     }
 
-    const pointer = this.scene.input.activePointer;
     if (this.storeInHand?.(card, pointer.x, pointer.y)) {
       this.stacks.reconcile(this.cards);
       this.onDrop({ card, stacked: false, wholePile: false, storedInHand: true });
+      return;
+    }
+
+    if (this.dropToActionBar?.(card, pointer.x, pointer.y)) {
+      this.stacks.reconcile(this.cards);
+      this.onDrop({ card, stacked: false, wholePile: false, storedInActionBar: true });
       return;
     }
 

@@ -4,7 +4,7 @@ import type { CardStack, CardStackSystem } from './CardStackSystem';
 interface ShelterEffect {
   type: 'shelter';
   damageReduction?: number;
-  chargesPerMoon?: number;
+  chargesPerDay?: number;
 }
 
 /**
@@ -13,7 +13,7 @@ interface ShelterEffect {
 export class ShelterSystem {
   private chargesLeft = 0;
 
-  private maxChargesPerMoon = 2;
+  private maxChargesPerDay = 2;
 
   private reduction = 0;
 
@@ -22,15 +22,15 @@ export class ShelterSystem {
     private readonly stacks: CardStackSystem,
   ) {
     scene.events.on('stack-changed', () => this.refresh());
-    scene.events.on('moon-end', () => {
-      if (this.maxChargesPerMoon > 0) this.chargesLeft = this.maxChargesPerMoon;
+    scene.events.on('day-end', () => {
+      if (this.maxChargesPerDay > 0) this.chargesLeft = this.maxChargesPerDay;
     });
     scene.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {});
     this.refresh();
   }
 
   resetCharges(): void {
-    this.chargesLeft = this.maxChargesPerMoon;
+    this.chargesLeft = this.maxChargesPerDay;
   }
 
   /** Multiplier applied to base damage (e.g. 0.5 = half). */
@@ -61,7 +61,8 @@ export class ShelterSystem {
         | ShelterEffect
         | undefined;
       this.reduction = Phaser.Math.Clamp(effect?.damageReduction ?? 0.5, 0, 0.9);
-      this.maxChargesPerMoon = effect?.chargesPerMoon ?? 2;
+      this.maxChargesPerDay =
+        effect?.chargesPerDay ?? (effect as { chargesPerMoon?: number })?.chargesPerMoon ?? 2;
       return true;
     }
     return false;

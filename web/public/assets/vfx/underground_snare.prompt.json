@@ -1,0 +1,12 @@
+{
+  "styleDoc": "docs/art-style-prompt.md",
+  "assetType": "vfx",
+  "positive": "post-apocalyptic survival game VFX spritesheet, 8 frames horizontal, brown roots spreading and wrapping ankle circle from cracked ground, dark muted greens, hand-painted, no thorns, no neon",
+  "negative": "neon, cyberpunk, anime, bright colors, text",
+  "aspectRatio": "10:1",
+  "frameWidth": 80,
+  "frameHeight": 72,
+  "frameCount": 8,
+  "tool": "bake-attack-vfx",
+  "notes": "缠足根减速攻击动画"
+}

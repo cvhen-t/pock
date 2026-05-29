@@ -17,9 +17,23 @@
     {
       "id": "defense",
       "name": "防御",
-      "description": "栅栏、掩体、场地与障碍",
+      "description": "栅栏、掩体、场地、畜栏与障碍",
       "cardFile": "deck_defense.json",
       "color": "#6a7a5a"
+    },
+    {
+      "id": "wilderness",
+      "name": "野外",
+      "description": "可采集的野外资源节点",
+      "cardFile": "deck_wilderness.json",
+      "color": "#6a6a50"
+    },
+    {
+      "id": "facility",
+      "name": "设施",
+      "description": "工房、厨房、设计院等生产建筑",
+      "cardFile": "deck_facility.json",
+      "color": "#7a6a50"
     }
   ]
 }

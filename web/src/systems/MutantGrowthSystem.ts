@@ -3,6 +3,7 @@ import Phaser from 'phaser';
 import { CardSpawner } from '../core/CardSpawner';
 import { pickWeightedOutcome, type GrowthTables } from '../core/GrowthTables';
 import type GameCard from '../objects/GameCard';
+import { CardProgressBar } from '../ui/CardProgressBar';
 import type { CardStack, CardStackSystem } from './CardStackSystem';
 
 interface PlantMutantEffect {
@@ -11,10 +12,15 @@ interface PlantMutantEffect {
   outcomes?: string;
 }
 
+interface FarmSeedEffect {
+  type: 'farm_seed';
+  outcomes?: string;
+}
+
 interface GrowingState {
   stackId: string;
   seed: GameCard;
-  progressBar?: Phaser.GameObjects.Rectangle;
+  progressBar?: CardProgressBar;
   timer: Phaser.Time.TimerEvent;
 }
 
@@ -48,9 +54,15 @@ export class MutantGrowthSystem {
       const effect = getPlantEffect(stack.base.definition);
       if (!effect?.outcomes) continue;
 
-      const seed = stack.members.find((m) =>
-        (m.definition.tags ?? []).includes('mutant_seed'),
-      );
+      const baseTags = stack.base.definition.tags ?? [];
+      const seed = stack.members.find((m) => {
+        const tags = m.definition.tags ?? [];
+        if (baseTags.includes('blight_plot')) return tags.includes('mutant_seed');
+        if (baseTags.includes('farmland')) {
+          return tags.includes('seed') && !tags.includes('mutant_seed');
+        }
+        return tags.includes('mutant_seed') || tags.includes('seed');
+      });
       if (!seed || this.growing.has(stack.id)) continue;
 
       this.startGrowth(stack, seed, effect);
@@ -67,19 +79,11 @@ export class MutantGrowthSystem {
 
   private startGrowth(stack: CardStack, seed: GameCard, effect: PlantMutantEffect): void {
     const seconds = effect.growthSeconds ?? 12;
-    const bar = this.scene.add.rectangle(stack.base.x, stack.base.y - 58, 4, 6, 0x6a8a4a, 0.9);
-    bar.setDepth(stack.base.depth + 50);
+    const bar = new CardProgressBar(seed, this.scene, 0x6a8a4a, seconds * 1000);
 
     const timer = this.scene.time.addEvent({
       delay: seconds * 1000,
       callback: () => this.completeGrowth(stack, seed, effect, bar),
-    });
-
-    this.scene.tweens.add({
-      targets: bar,
-      width: 48,
-      duration: seconds * 1000,
-      ease: 'Linear',
     });
 
     this.growing.set(stack.id, { stackId: stack.id, seed, progressBar: bar, timer });
@@ -90,14 +94,15 @@ export class MutantGrowthSystem {
     stack: CardStack,
     seed: GameCard,
     effect: PlantMutantEffect,
-    bar: Phaser.GameObjects.Rectangle,
+    bar: CardProgressBar,
   ): void {
     bar.destroy();
     this.growing.delete(stack.id);
 
     this.removeSeedFromStack(stack, seed);
 
-    const tableKey = effect.outcomes ?? '';
+    const seedEffect = getFarmSeedEffect(seed.definition);
+    const tableKey = seedEffect?.outcomes ?? effect.outcomes ?? '';
     const table = this.tables[tableKey];
     const result = table?.length ? pickWeightedOutcome(table) : 'plant_thornvine';
 
@@ -144,4 +149,8 @@ export class MutantGrowthSystem {
 
 function getPlantEffect(def: { effects?: { type: string }[] }): PlantMutantEffect | undefined {
   return def.effects?.find((e) => e.type === 'plant_mutant') as PlantMutantEffect | undefined;
+}
+
+function getFarmSeedEffect(def: { effects?: { type: string }[] }): FarmSeedEffect | undefined {
+  return def.effects?.find((e) => e.type === 'farm_seed') as FarmSeedEffect | undefined;
 }

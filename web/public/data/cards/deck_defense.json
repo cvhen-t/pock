@@ -15,9 +15,18 @@
           "contactDamage": 1,
           "contactCooldownSec": 2,
           "healPerScrap": 2,
-          "moonRegen": 2
+          "dayRegen": 2
         }
       ]
+    },
+    {
+      "id": "trader_post",
+      "name": "流浪商人摊位",
+      "deck": "defense",
+      "shape": "tile",
+      "tags": ["shop", "building"],
+      "color": "#5c4a38",
+      "effects": [{ "type": "shop_building" }]
     },
     {
       "id": "fence_iron",
@@ -62,12 +71,211 @@
       ]
     },
     {
+      "id": "farmland",
+      "name": "规整农田",
+      "deck": "defense",
+      "shape": "tile",
+      "tags": ["farmland", "building"],
+      "color": "#4a5038",
+      "effects": [
+        {
+          "type": "plant_mutant",
+          "growthSeconds": 14,
+          "outcomes": "growth_farmland_default"
+        }
+      ]
+    },
+    {
+      "id": "mushroom_bed",
+      "name": "菇床",
+      "deck": "defense",
+      "shape": "wide",
+      "tags": ["worksite", "resource_node", "building"],
+      "color": "#3a4030",
+      "effects": [
+        {
+          "type": "spawn_timer",
+          "requiresStackTag": "survivor",
+          "outputCardId": "mushroom_cap",
+          "intervalSeconds": 12,
+          "maxOutputs": 10
+        }
+      ]
+    },
+    {
+      "id": "reed_patch",
+      "name": "芦苇丛",
+      "deck": "defense",
+      "shape": "wide",
+      "tags": ["worksite", "resource_node", "building"],
+      "color": "#3a4a38",
+      "effects": [
+        {
+          "type": "spawn_timer",
+          "requiresStackTag": "survivor",
+          "outputCardId": "reed_stalk",
+          "intervalSeconds": 10,
+          "maxOutputs": 12
+        }
+      ]
+    },
+    {
       "id": "chicken_coop",
       "name": "鸡舍",
       "deck": "defense",
       "shape": "wide",
-      "tags": ["building", "ranch"],
-      "color": "#4a4030"
+      "tags": ["building", "ranch", "poultry_pen"],
+      "color": "#4a4030",
+      "effects": [
+        {
+          "type": "ranch_pen",
+          "acceptTags": ["poultry"],
+          "maxAnimals": 4,
+          "produce": {
+            "outputCardId": "egg_mutant",
+            "intervalSeconds": 14,
+            "feed": [{ "tag": "feed", "count": 1 }],
+            "bonus": { "outputCardId": "feather_clump", "chance": 0.2 }
+          },
+          "breed": {
+            "sameTag": "poultry",
+            "minCount": 2,
+            "outputCardId": "chick_rust",
+            "intervalSeconds": 28,
+            "feed": [{ "tag": "feed", "count": 2 }],
+            "breedCooldownSec": 45
+          }
+        }
+      ]
+    },
+    {
+      "id": "goat_pen",
+      "name": "锈铁羊圈",
+      "deck": "defense",
+      "shape": "wide",
+      "tags": ["building", "ranch", "livestock_pen"],
+      "color": "#4a4038",
+      "effects": [
+        {
+          "type": "ranch_pen",
+          "acceptTags": ["livestock"],
+          "maxAnimals": 3,
+          "produce": {
+            "outputCardId": "goat_milk",
+            "intervalSeconds": 18,
+            "feed": [{ "tag": "feed", "count": 1 }],
+            "everyNCycles": { "n": 3, "outputCardId": "animal_hide", "count": 1 }
+          },
+          "breed": {
+            "sameTag": "livestock",
+            "minCount": 2,
+            "outputCardId": "goat_scrap",
+            "intervalSeconds": 32,
+            "feed": [{ "tag": "feed", "count": 2 }],
+            "breedCooldownSec": 45
+          }
+        }
+      ]
+    },
+    {
+      "id": "rabbit_hutch",
+      "name": "兔笼",
+      "deck": "defense",
+      "shape": "wide",
+      "tags": ["building", "ranch", "livestock_pen"],
+      "color": "#5a5048",
+      "effects": [
+        {
+          "type": "ranch_pen",
+          "acceptTags": ["livestock"],
+          "maxAnimals": 6,
+          "produce": {
+            "outputCardId": "raw_meat",
+            "intervalSeconds": 10,
+            "feed": [{ "tag": "feed", "count": 1 }]
+          },
+          "breed": {
+            "sameTag": "livestock",
+            "minCount": 2,
+            "outputCardId": "rabbit_iron",
+            "intervalSeconds": 20,
+            "feed": [{ "tag": "feed", "count": 1 }],
+            "breedCooldownSec": 30
+          }
+        }
+      ]
+    },
+    {
+      "id": "pig_sty",
+      "name": "废料猪栏",
+      "deck": "defense",
+      "shape": "wide",
+      "tags": ["building", "ranch", "livestock_pen"],
+      "color": "#4a3838",
+      "effects": [
+        {
+          "type": "ranch_pen",
+          "acceptTags": ["livestock"],
+          "maxAnimals": 2,
+          "produce": {
+            "outputCardId": "raw_meat",
+            "intervalSeconds": 22,
+            "feed": [{ "tag": "feed", "count": 2 }],
+            "extraOutputs": [{ "cardId": "lard_tin", "count": 1 }]
+          },
+          "breed": {
+            "sameTag": "livestock",
+            "minCount": 2,
+            "outputCardId": "pig_mutant",
+            "intervalSeconds": 36,
+            "feed": [{ "tag": "feed", "count": 3 }],
+            "breedCooldownSec": 45
+          }
+        }
+      ]
+    },
+    {
+      "id": "kennel",
+      "name": "犬舍",
+      "deck": "defense",
+      "shape": "tile",
+      "tags": ["building", "ranch", "guard_pen"],
+      "color": "#4a4038",
+      "effects": [
+        {
+          "type": "ranch_pen",
+          "acceptTags": ["guard_beast"],
+          "maxAnimals": 2,
+          "breed": {
+            "sameTag": "guard_beast",
+            "minCount": 2,
+            "outputCardId": "pup_guard",
+            "intervalSeconds": 32,
+            "feed": [{ "tag": "feed", "count": 2 }],
+            "breedCooldownSec": 45
+          }
+        }
+      ]
+    },
+    {
+      "id": "insect_crate",
+      "name": "虫箱",
+      "deck": "defense",
+      "shape": "wide",
+      "tags": ["building", "ranch", "poultry_pen"],
+      "color": "#3a4030",
+      "effects": [
+        {
+          "type": "ranch_pen",
+          "acceptTags": ["poultry"],
+          "maxAnimals": 8,
+          "produce": {
+            "outputCardId": "insect_glue",
+            "intervalSeconds": 12,
+            "feed": [{ "cardId": "mash_feed", "count": 1 }]
+          }
+        }
+      ]
     },
     {
       "id": "spike_strip",
@@ -85,7 +293,7 @@
       "shape": "tile",
       "tags": ["defense", "shelter"],
       "color": "#3a3a38",
-      "effects": [{ "type": "shelter", "damageReduction": 0.5, "chargesPerMoon": 2 }]
+      "effects": [{ "type": "shelter", "damageReduction": 0.5, "chargesPerDay": 2 }]
     },
     {
       "id": "gate_scrap",

@@ -3,21 +3,27 @@ import { CARD_SHAPES, resolveCardMetrics } from '../config/cardLayout';
 import { HAND_DRAG_THRESHOLD, HAND_SCROLL_THRESHOLD, HAND_SLOT_GAP, HAND_SLOT_SCALE, } from '../config/layoutConfig';
 import { HandInventory } from '../core/HandInventory';
 import { dataStore } from '../core/DataStore';
+import { describeStackDrop } from '../core/stackOutcomePreview';
 import GameCard, { boardDepthFromY } from '../objects/GameCard';
 import { TEX } from '../art/textureKeys';
 import { clampCardCenter } from './playfieldClamp';
+import { fadeOutGhost, tweenCardEnter, tweenDragPickup } from './dragFx';
 const HUD_DEPTH = 2100;
 export default class HandBar extends Phaser.GameObjects.Container {
     stacks;
     spawner;
     inventory = new HandInventory();
+    orientation;
     bg;
+    titleText;
     viewport;
     emptyHint;
     slotViews = new Map();
     scrollOffset = 0;
     viewW = 0;
+    viewH = 0;
     layoutRects;
+    panelRect;
     pointerMode = 'idle';
     activeSlotId = null;
     pointerOriginX = 0;
@@ -26,22 +32,39 @@ export default class HandBar extends Phaser.GameObjects.Container {
     dragGhost = null;
     dragCardId = null;
     gameOver = false;
-    constructor(scene, stacks, spawner) {
+    dropHint;
+    onTradeSellDrop;
+    onActionBarDrop;
+    onTradeSellHint;
+    onDragHover;
+    constructor(scene, stacks, spawner, options = {}) {
         super(scene, 0, 0);
         this.stacks = stacks;
         this.spawner = spawner;
+        this.orientation = options.orientation ?? 'horizontal';
+        this.onTradeSellDrop = options.onTradeSellDrop;
+        this.onTradeSellHint = options.onTradeSellHint;
+        this.onActionBarDrop = options.onActionBarDrop;
+        this.onDragHover = options.onDragHover;
         scene.add.existing(this);
         this.setScrollFactor(0);
         this.setDepth(HUD_DEPTH);
         this.bg = scene.add.rectangle(0, 0, 100, 72, 0x1e1b16, 0.94);
         this.bg.setStrokeStyle(1, 0x4a4034, 0.8);
+        this.titleText = scene.add.text(0, 0, options.title ?? '', {
+            fontSize: '9px',
+            color: '#7a7064',
+        });
+        this.titleText.setOrigin(0.5, 0);
         this.viewport = scene.add.container(0, 0);
-        this.emptyHint = scene.add.text(0, 0, '待放置卡牌会出现在这里', {
+        this.emptyHint = scene.add.text(0, 0, options.emptyHint ?? '暂无卡牌', {
             fontSize: '11px',
             color: '#5a5248',
+            align: 'center',
+            wordWrap: { width: 90 },
         });
         this.emptyHint.setOrigin(0.5);
-        this.add([this.bg, this.viewport, this.emptyHint]);
+        this.add([this.bg, this.titleText, this.viewport, this.emptyHint]);
         const input = scene.input;
         input.on('pointerdown', this.onPointerDown, this);
         input.on('pointermove', this.onPointerMove, this);
@@ -60,25 +83,34 @@ export default class HandBar extends Phaser.GameObjects.Container {
     setGameOver(over) {
         this.gameOver = over;
     }
-    applyLayout(rects) {
+    applyLayout(rects, panelRect) {
         this.layoutRects = rects;
-        const { handBar } = rects;
-        this.setPosition(handBar.x, handBar.y);
-        this.bg.setPosition(handBar.width / 2, handBar.height / 2);
-        this.bg.setSize(handBar.width, handBar.height);
-        const padX = 10;
-        const viewW = handBar.width - padX * 2;
-        const viewH = handBar.height - 12;
-        const viewX = padX;
-        const viewY = 6;
+        this.panelRect = panelRect;
+        this.setPosition(panelRect.x, panelRect.y);
+        this.bg.setPosition(panelRect.width / 2, panelRect.height / 2);
+        this.bg.setSize(panelRect.width, panelRect.height);
+        const pad = 8;
+        const titleH = this.titleText.text ? 14 : 0;
+        this.titleText.setPosition(panelRect.width / 2, 4);
+        const viewW = panelRect.width - pad * 2;
+        const viewH = panelRect.height - pad * 2 - titleH;
+        const viewX = pad;
+        const viewY = pad + titleH;
         this.viewport.setPosition(viewX, viewY);
         this.emptyHint.setPosition(viewX + viewW / 2, viewY + viewH / 2);
+        if (this.orientation === 'vertical') {
+            this.emptyHint.setWordWrapWidth(viewW - 4);
+        }
         this.viewW = viewW;
+        this.viewH = viewH;
         this.clampScroll();
-        this.rebuildSlots(viewH);
+        this.rebuildSlots();
+    }
+    setDropHint(hint) {
+        this.dropHint = hint;
     }
     containsScreenPoint(sx, sy) {
-        return this.layoutRects?.handBar.contains(sx, sy) ?? false;
+        return this.panelRect?.contains(sx, sy) ?? false;
     }
     isDraggingFromHand() {
         return this.pointerMode === 'drag';
@@ -94,7 +126,7 @@ export default class HandBar extends Phaser.GameObjects.Container {
             return false;
         return true;
     }
-    /** Move a board card into the hand bar (destroys the GameCard). */
+    /** Move a board card into this bar (destroys the GameCard). */
     storeBoardCard(card, drag) {
         if (!this.canStoreBoardCard(card))
             return false;
@@ -110,16 +142,19 @@ export default class HandBar extends Phaser.GameObjects.Container {
     addCard(cardId, amount = 1) {
         this.inventory.add(cardId, amount);
         this.scene.events.emit('hand-slot-changed', { cardId, count: this.inventory.getCount(cardId) });
-        if (this.layoutRects) {
-            this.viewW = this.layoutRects.handBar.width - 20;
-            this.rebuildSlots(this.layoutRects.handBar.height - 12);
+        if (this.panelRect) {
+            this.rebuildSlots();
         }
     }
     slotStep() {
-        const w = CARD_SHAPES.compact.w * HAND_SLOT_SCALE;
-        return w + HAND_SLOT_GAP;
+        const metrics = CARD_SHAPES.compact;
+        const scale = HAND_SLOT_SCALE;
+        if (this.orientation === 'horizontal') {
+            return metrics.w * scale + HAND_SLOT_GAP;
+        }
+        return metrics.h * scale + HAND_SLOT_GAP;
     }
-    rebuildSlots(viewH) {
+    rebuildSlots() {
         for (const view of this.slotViews.values()) {
             view.container.destroy();
         }
@@ -130,7 +165,7 @@ export default class HandBar extends Phaser.GameObjects.Container {
             const def = dataStore.getCard(slot.cardId);
             if (!def)
                 continue;
-            const container = this.scene.add.container(0, viewH / 2);
+            const container = this.scene.add.container(0, 0);
             const metrics = CARD_SHAPES.compact;
             const scale = HAND_SLOT_SCALE;
             const w = metrics.w * scale;
@@ -152,8 +187,8 @@ export default class HandBar extends Phaser.GameObjects.Container {
             const badge = this.scene.add.text(w * 0.38, -h * 0.42, '', {
                 fontSize: '10px',
                 color: '#f0e8d8',
-                backgroundColor: '#3a3028',
-                padding: { x: 4, y: 1 },
+                stroke: '#1a1612',
+                strokeThickness: 2,
             });
             badge.setOrigin(0.5);
             badge.setVisible(slot.count > 1);
@@ -168,34 +203,54 @@ export default class HandBar extends Phaser.GameObjects.Container {
         this.clampScroll();
         this.layoutSlotPositions();
     }
-    /** 以底栏中线为基准排布：少牌居中，多牌可横滑。 */
     layoutSlotPositions() {
         const step = this.slotStep();
         const slots = this.inventory.getSlots();
-        const contentW = slots.length * step;
-        const viewW = this.viewW;
-        const fits = contentW <= viewW;
-        let startX;
+        const contentLen = slots.length * step;
+        if (this.orientation === 'horizontal') {
+            const fits = contentLen <= this.viewW;
+            let startX;
+            if (fits) {
+                startX = (this.viewW - contentLen) / 2 + step / 2;
+            }
+            else {
+                startX = (this.viewW - contentLen) / 2 - this.scrollOffset + step / 2;
+            }
+            let i = 0;
+            for (const slot of slots) {
+                const view = this.slotViews.get(slot.cardId);
+                if (view) {
+                    view.container.x = startX + i * step;
+                    view.container.y = this.viewH / 2;
+                }
+                i += 1;
+            }
+            return;
+        }
+        const fits = contentLen <= this.viewH;
+        let startY;
         if (fits) {
-            startX = (viewW - contentW) / 2 + step / 2;
+            startY = (this.viewH - contentLen) / 2 + step / 2;
         }
         else {
-            startX = (viewW - contentW) / 2 - this.scrollOffset + step / 2;
+            startY = (this.viewH - contentLen) / 2 - this.scrollOffset + step / 2;
         }
         let i = 0;
         for (const slot of slots) {
             const view = this.slotViews.get(slot.cardId);
             if (view) {
-                view.container.x = startX + i * step;
+                view.container.x = this.viewW / 2;
+                view.container.y = startY + i * step;
             }
             i += 1;
         }
     }
-    contentWidth() {
+    contentScrollSize() {
         return this.inventory.getSlots().length * this.slotStep();
     }
     maxScroll() {
-        return Math.max(0, this.contentWidth() - this.viewW);
+        const viewSize = this.orientation === 'horizontal' ? this.viewW : this.viewH;
+        return Math.max(0, this.contentScrollSize() - viewSize);
     }
     resolveIconKey(id, artKey, icon) {
         if (artKey && this.scene.textures.exists(TEX.cardArt(artKey))) {
@@ -214,7 +269,7 @@ export default class HandBar extends Phaser.GameObjects.Container {
         this.layoutSlotPositions();
     }
     hitSlot(sx, sy) {
-        if (!this.layoutRects?.handBar.contains(sx, sy))
+        if (!this.panelRect?.contains(sx, sy))
             return null;
         const lx = sx - this.x - this.viewport.x;
         const ly = sy - this.y - this.viewport.y;
@@ -235,7 +290,7 @@ export default class HandBar extends Phaser.GameObjects.Container {
         return null;
     }
     onPointerDown(pointer) {
-        if (this.gameOver || !this.layoutRects)
+        if (this.gameOver || !this.panelRect)
             return;
         const cardId = this.hitSlot(pointer.x, pointer.y);
         if (!cardId)
@@ -253,18 +308,27 @@ export default class HandBar extends Phaser.GameObjects.Container {
             return;
         const dx = pointer.x - this.pointerOriginX;
         const dy = pointer.y - this.pointerOriginY;
-        const handTop = this.layoutRects?.handBar.top ?? 0;
         if (this.pointerMode === 'idle') {
-            if (Math.abs(dx) > HAND_SCROLL_THRESHOLD &&
-                Math.abs(dx) > Math.abs(dy) * 1.1) {
+            if (this.orientation === 'horizontal') {
+                if (Math.abs(dx) > HAND_SCROLL_THRESHOLD && Math.abs(dx) > Math.abs(dy) * 1.1) {
+                    this.pointerMode = 'scroll';
+                }
+                else if (pointer.y < this.panelRect.top - 8 ||
+                    dy < -HAND_DRAG_THRESHOLD) {
+                    this.startDrag(this.activeSlotId);
+                }
+            }
+            else if (Math.abs(dy) > HAND_SCROLL_THRESHOLD &&
+                Math.abs(dy) > Math.abs(dx) * 1.1) {
                 this.pointerMode = 'scroll';
             }
-            else if (pointer.y < handTop - 8 || dy < -HAND_DRAG_THRESHOLD) {
+            else if (pointer.x < this.panelRect.left - 8 ||
+                dx < -HAND_DRAG_THRESHOLD) {
                 this.startDrag(this.activeSlotId);
             }
         }
         if (this.pointerMode === 'scroll') {
-            this.scrollOffset = this.scrollOrigin - dx;
+            this.scrollOffset = this.scrollOrigin - (this.orientation === 'horizontal' ? dx : dy);
             this.clampScroll();
             return;
         }
@@ -272,7 +336,29 @@ export default class HandBar extends Phaser.GameObjects.Container {
             const { x, y } = this.worldPoint(pointer);
             this.dragGhost.setPosition(x, y);
             this.dragGhost.setDepth(1600);
+            this.onDragHover?.(pointer.x, pointer.y);
+            this.updateDropHint(x, y);
         }
+    }
+    updateDropHint(wx, wy) {
+        if (!this.dropHint || !this.dragGhost || !this.dragCardId)
+            return;
+        const sellPreview = this.onTradeSellHint?.(this.dragCardId, wx, wy);
+        if (sellPreview) {
+            this.dropHint.show(wx, wy, sellPreview);
+            return;
+        }
+        const target = this.stacks.findCardUnder(wx, wy, undefined);
+        if (!target) {
+            this.dropHint.hide();
+            return;
+        }
+        const preview = describeStackDrop(this.stacks, this.dragGhost, target);
+        if (!preview) {
+            this.dropHint.hide();
+            return;
+        }
+        this.dropHint.show(target.x, target.y, preview);
     }
     onPointerUp() {
         if (this.pointerMode === 'drag') {
@@ -292,11 +378,15 @@ export default class HandBar extends Phaser.GameObjects.Container {
         const pointer = this.scene.input.activePointer;
         const { x, y } = this.worldPoint(pointer);
         this.dragGhost = new GameCard(this.scene, x, y, def);
-        this.dragGhost.setScale(1.06);
+        this.dragGhost.setScale(0.94);
+        this.dragGhost.setAlpha(0.92);
         this.dragGhost.setDepth(1600);
         this.scene.children.bringToTop(this.dragGhost);
+        tweenDragPickup(this.scene, this.dragGhost, 1.06);
     }
     finishDrag() {
+        this.dropHint?.hide();
+        this.onDragHover?.(-1, -1);
         const cardId = this.dragCardId;
         const ghost = this.dragGhost;
         this.dragGhost = null;
@@ -304,17 +394,44 @@ export default class HandBar extends Phaser.GameObjects.Container {
         this.pointerMode = 'idle';
         if (!cardId || !ghost)
             return;
-        const pf = this.layoutRects?.playfield;
+        const pointer = this.scene.input.activePointer;
         const dropX = ghost.x;
         const dropY = ghost.y;
-        ghost.destroy();
-        if (!pf || this.gameOver)
+        if (this.onTradeSellDrop?.(cardId, pointer.x, pointer.y, dropX, dropY)) {
+            ghost.destroy();
+            this.inventory.consumeOne(cardId);
+            this.scene.events.emit('hand-slot-changed', {
+                cardId,
+                count: this.inventory.getCount(cardId),
+            });
+            if (this.panelRect)
+                this.rebuildSlots();
             return;
-        if (this.inventory.getCount(cardId) <= 0)
+        }
+        if (this.onActionBarDrop?.(cardId, pointer.x, pointer.y)) {
+            fadeOutGhost(this.scene, ghost);
+            this.scene.events.emit('hand-slot-changed', {
+                cardId,
+                count: this.inventory.getCount(cardId),
+            });
+            if (this.panelRect)
+                this.rebuildSlots();
             return;
+        }
+        const pf = this.layoutRects?.playfield;
+        if (!pf || this.gameOver) {
+            fadeOutGhost(this.scene, ghost);
+            return;
+        }
+        if (this.inventory.getCount(cardId) <= 0) {
+            fadeOutGhost(this.scene, ghost);
+            return;
+        }
         const def = dataStore.getCard(cardId);
-        if (!def)
+        if (!def) {
+            fadeOutGhost(this.scene, ghost);
             return;
+        }
         const metrics = resolveCardMetrics(def);
         const hw = metrics.w / 2;
         const hh = metrics.h / 2;
@@ -322,13 +439,16 @@ export default class HandBar extends Phaser.GameObjects.Container {
             dropX > pf.right - hw ||
             dropY < pf.top + hh ||
             dropY > pf.bottom - hh) {
+            fadeOutGhost(this.scene, ghost);
             return;
         }
+        fadeOutGhost(this.scene, ghost);
         const card = this.spawner.spawn(cardId, dropX, dropY);
         if (!card)
             return;
         clampCardCenter(pf, card);
         card.setDepth(boardDepthFromY(card.y));
+        tweenCardEnter(this.scene, card, 1);
         const target = this.stacks.findCardUnder(card.x, card.y, card);
         if (target) {
             this.stacks.tryStack(card, target);
@@ -339,12 +459,13 @@ export default class HandBar extends Phaser.GameObjects.Container {
             count: this.inventory.getCount(cardId),
         });
         this.scene.events.emit('card-placed-from-hand', { cardId, card });
-        if (this.layoutRects) {
-            this.viewW = this.layoutRects.handBar.width - 20;
-            this.rebuildSlots(this.layoutRects.handBar.height - 12);
+        if (this.panelRect) {
+            this.rebuildSlots();
         }
     }
     cancelDrag() {
+        this.dropHint?.hide();
+        this.onDragHover?.(-1, -1);
         this.dragGhost?.destroy();
         this.dragGhost = null;
         this.dragCardId = null;

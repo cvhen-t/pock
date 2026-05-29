@@ -1,7 +1,41 @@
 {
   "growth_thornvine": [
-    { "result": "plant_thornvine", "weight": 70 },
-    { "result": "plant_weed", "weight": 20 },
-    { "result": "fail_contaminate", "weight": 10 }
+    { "result": "plant_thornvine", "weight": 65 },
+    { "result": "plant_snare_root", "weight": 15 },
+    { "result": "plant_weed", "weight": 15 },
+    { "result": "fail_contaminate", "weight": 5 }
+  ],
+  "growth_spore": [
+    { "result": "plant_sporegun", "weight": 60 },
+    { "result": "plant_acid_bloom", "weight": 20 },
+    { "result": "plant_weed", "weight": 15 },
+    { "result": "fail_contaminate", "weight": 5 }
+  ],
+  "growth_farmland_wheat": [
+    { "result": "iron_wheat_crop", "weight": 85 },
+    { "result": "plant_weed", "weight": 15 }
+  ],
+  "growth_farmland_sun": [
+    { "result": "crop_sun_pod", "weight": 80 },
+    { "result": "plant_fiber", "weight": 20 }
+  ],
+  "growth_farmland_reed": [
+    { "result": "reed_stalk", "weight": 70 },
+    { "result": "plant_fiber", "weight": 30 }
+  ],
+  "growth_farmland_cactus": [
+    { "result": "crop_cactus_pad", "weight": 85 },
+    { "result": "plant_weed", "weight": 15 }
+  ],
+  "growth_farmland_mycelium": [
+    { "result": "mushroom_cap", "weight": 90 },
+    { "result": "plant_weed", "weight": 10 }
+  ],
+  "growth_farmland_default": [
+    { "result": "plant_weed", "weight": 100 }
+  ],
+  "growth_snare": [
+    { "result": "plant_snare_root", "weight": 80 },
+    { "result": "plant_weed", "weight": 20 }
   ]
 }

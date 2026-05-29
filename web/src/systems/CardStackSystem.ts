@@ -5,6 +5,7 @@ import {
   resolveCardMetrics,
   STACK_HIT_RADIUS,
 } from '../config/cardLayout';
+import { isQuantityMergePair, isQuantityStackable } from '../core/cardQuantity';
 import GameCard, { boardDepthFromY } from '../objects/GameCard';
 
 export { STACK_SNAP } from '../config/cardLayout';
@@ -158,8 +159,26 @@ export class CardStackSystem {
     return true;
   }
 
+  /** Whether a drop would stack (read-only; does not mutate stacks). */
+  wouldAcceptStack(dragged: GameCard, target: GameCard): boolean {
+    if (dragged === target) return false;
+    if (isQuantityMergePair(dragged, target)) return true;
+
+    const targetStack = this.resolveStackForCard(target);
+    const draggedStack = dragged.stackId ? this.stacks.get(dragged.stackId) : undefined;
+
+    if (draggedStack && this.containsCard(draggedStack, dragged)) {
+      if (draggedStack.base !== dragged) return false;
+    }
+
+    return this.isValidStackTarget(dragged, targetStack);
+  }
+
   tryStack(dragged: GameCard, target: GameCard): boolean {
     if (dragged === target) return false;
+    if (isQuantityMergePair(dragged, target)) {
+      return this.mergeQuantityCards(dragged, target);
+    }
 
     const targetStack = this.resolveStackForCard(target);
     const draggedStack = dragged.stackId ? this.stacks.get(dragged.stackId) : undefined;
@@ -213,18 +232,85 @@ export class CardStackSystem {
     const baseTags = target.base.definition.tags ?? [];
     const dragTags = dragged.definition.tags ?? [];
 
+    if (dragTags.includes('survivor') && baseTags.includes('craft_station')) return false;
+    if (dragTags.includes('survivor') && baseTags.includes('ranch')) return false;
+
     if (dragTags.includes('survivor') && baseTags.includes('base')) return true;
     if (dragged.definition.id === 'scrap' && baseTags.includes('base')) return true;
     if (dragged.definition.id === 'barbed_roll' && baseTags.includes('barrier')) return true;
     if (dragTags.includes('survivor') && baseTags.includes('worksite')) return true;
+
     if (dragTags.includes('mutant_seed') && baseTags.includes('blight_plot')) return true;
-    if (dragTags.includes('resource') && baseTags.includes('building')) return true;
+    if (
+      dragTags.includes('seed') &&
+      !dragTags.includes('mutant_seed') &&
+      baseTags.includes('farmland')
+    ) {
+      return true;
+    }
+
+    if (baseTags.includes('craft_station') && isCraftStackInput(dragTags)) return true;
+
+    if (baseTags.includes('ranch')) {
+      if (dragTags.includes('feed')) return true;
+      if (dragTags.includes('animal') && animalAcceptedByRanch(dragTags, target.base.definition)) {
+        return true;
+      }
+      return false;
+    }
+
+    if (baseTags.includes('warehouse') && isStorableMaterial(dragTags)) return true;
+
+    if (baseTags.includes('shop')) return false;
+
     if (dragTags.includes('weapon')) {
       const pile = [target.base, ...target.members];
       return pile.some((c) => (c.definition.tags ?? []).includes('survivor'));
     }
 
+    const activation = target.base.definition.effects?.find(
+      (e) => e.type === 'plant_activation',
+    );
+    if (
+      activation &&
+      dragged.definition.id === String(activation.consumeCardId ?? '')
+    ) {
+      const plantActivation = this.scene.registry.get('plantActivation') as
+        | { canStackActivator(base: GameCard): boolean }
+        | undefined;
+      return plantActivation?.canStackActivator(target.base) ?? true;
+    }
+
+    if (isQuantityStackable(dragged.definition) || isQuantityStackable(target.base.definition)) {
+      return false;
+    }
+
     return Phaser.Math.Distance.Between(dragged.x, dragged.y, target.base.x, target.base.y) < STACK_HIT_RADIUS;
+  }
+
+  private mergeQuantityCards(dragged: GameCard, target: GameCard): boolean {
+    const draggedStack = dragged.stackId ? this.stacks.get(dragged.stackId) : undefined;
+    if (draggedStack && this.containsCard(draggedStack, dragged) && draggedStack.base !== dragged) {
+      return false;
+    }
+
+    if (draggedStack?.base === dragged) {
+      this.detachFromStack(dragged);
+    } else {
+      this.removeCardFromAllStacks(dragged);
+    }
+
+    target.addQuantity(dragged.quantity);
+    dragged.stackId = null;
+    this.scene.events.emit('card-removed', dragged);
+    dragged.destroy();
+
+    const targetStack = this.getStackAt(target);
+    if (targetStack) {
+      this.layoutStack(targetStack);
+      this.scene.events.emit('stack-changed', targetStack);
+    }
+    return true;
   }
 
   layoutStack(stack: CardStack): void {
@@ -255,4 +341,43 @@ export class CardStackSystem {
     }
     return best;
   }
+}
+
+const CRAFT_INPUT_TAGS = [
+  'material_raw',
+  'material',
+  'material_refined',
+  'food',
+  'feed',
+  'chemical',
+  'water_raw',
+  'water',
+  'organic',
+  'animal_product',
+  'crop',
+  'animal',
+  'metal',
+  'wood',
+  'fiber',
+  'soil',
+  'seed',
+] as const;
+
+function isCraftStackInput(tags: string[]): boolean {
+  if (tags.includes('survivor')) return false;
+  return CRAFT_INPUT_TAGS.some((t) => tags.includes(t));
+}
+
+function isStorableMaterial(tags: string[]): boolean {
+  return isCraftStackInput(tags);
+}
+
+function animalAcceptedByRanch(
+  dragTags: string[],
+  baseDef: { effects?: { type: string; acceptTags?: string[] }[] },
+): boolean {
+  const effect = baseDef.effects?.find((e) => e.type === 'ranch_pen');
+  const accept = effect?.acceptTags ?? [];
+  if (accept.length === 0) return true;
+  return accept.some((t) => dragTags.includes(t));
 }

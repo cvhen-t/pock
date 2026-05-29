@@ -1,3 +1,4 @@
+import { consumeCardQuantity } from '../core/cardQuantity';
 /**
  * Stack-triggered defense interactions: repair base, reinforce barriers.
  */
@@ -18,7 +19,7 @@ export class DefenseCraftSystem {
         this.tryBarbedRoll(stack);
     }
     tryBaseRepair(stack) {
-        const healed = this.baseCamp.tryRepairFromStack(stack, (card) => this.stacks.removeCardFromPlay(card));
+        const healed = this.baseCamp.tryRepairFromStack(stack, this.stacks);
         if (healed) {
             this.scene.events.emit('stack-changed', stack);
         }
@@ -30,10 +31,8 @@ export class DefenseCraftSystem {
         const roll = stack.members.find((m) => m.definition.id === 'barbed_roll');
         if (!roll)
             return;
-        if (!this.stacks.removeCardFromPlay(roll))
-            return;
-        roll.destroy();
-        stack.members = stack.members.filter((m) => m !== roll);
+        consumeCardQuantity(roll, 1, this.stacks);
+        stack.members = stack.members.filter((m) => m.active);
         this.barriers.healBarrier(stack.base, 4);
         this.scene.events.emit('drag-toast', '铁丝网加固：路障 +4 耐久');
         this.scene.events.emit('stack-changed', stack);

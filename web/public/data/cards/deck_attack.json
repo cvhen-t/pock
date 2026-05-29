@@ -40,7 +40,8 @@
       "deck": "attack",
       "shape": "compact",
       "tags": ["mutant_seed", "farm"],
-      "color": "#3a4a2e"
+      "color": "#3a4a2e",
+      "effects": [{ "type": "farm_seed", "outcomes": "growth_thornvine" }]
     },
     {
       "id": "seed_spore",
@@ -48,7 +49,53 @@
       "deck": "attack",
       "shape": "compact",
       "tags": ["mutant_seed", "farm"],
-      "color": "#3a4a32"
+      "color": "#3a4a32",
+      "effects": [{ "type": "farm_seed", "outcomes": "growth_spore" }]
+    },
+    {
+      "id": "seed_sun_pod",
+      "name": "锈向日葵种",
+      "deck": "attack",
+      "shape": "compact",
+      "tags": ["seed", "farm"],
+      "color": "#6a5a28",
+      "effects": [{ "type": "farm_seed", "outcomes": "growth_farmland_sun" }]
+    },
+    {
+      "id": "seed_reed",
+      "name": "水芦苇种",
+      "deck": "attack",
+      "shape": "compact",
+      "tags": ["seed", "farm"],
+      "color": "#4a5a38",
+      "effects": [{ "type": "farm_seed", "outcomes": "growth_farmland_reed" }]
+    },
+    {
+      "id": "seed_cactus",
+      "name": "刺掌种",
+      "deck": "attack",
+      "shape": "compact",
+      "tags": ["seed", "farm"],
+      "color": "#4a6a38",
+      "effects": [{ "type": "farm_seed", "outcomes": "growth_farmland_cactus" }]
+    },
+    {
+      "id": "seed_mycelium",
+      "name": "菌丝种",
+      "deck": "attack",
+      "shape": "compact",
+      "tags": ["seed", "farm"],
+      "color": "#4a4038",
+      "effects": [{ "type": "farm_seed", "outcomes": "growth_farmland_mycelium" }]
+    },
+    {
+      "id": "seed_snare",
+      "name": "缠足根种子包",
+      "deck": "attack",
+      "shape": "compact",
+      "tags": ["mutant_seed", "farm"],
+      "color": "#3a4a30",
+      "effects": [{ "type": "farm_seed", "outcomes": "growth_snare" }]
     },
     {
       "id": "plant_thornvine",
@@ -81,7 +128,77 @@
       "tags": ["attack_plant"],
       "color": "#2a4230",
       "effects": [
-        { "type": "defense_turret", "damage": 3, "range": 120, "hp": 5, "attackCooldown": 1.5 }
+        {
+          "type": "defense_turret",
+          "damage": 3,
+          "range": 120,
+          "hp": 5,
+          "attackCooldown": 1.5,
+          "attackPresentation": {
+            "style": "spore_burst",
+            "spawnFrom": "plant_muzzle",
+            "hitFrame": 3,
+            "frameRate": 14
+          }
+        }
+      ]
+    },
+    {
+      "id": "plant_snare_root",
+      "name": "缠足根",
+      "deck": "attack",
+      "shape": "slim",
+      "tags": ["attack_plant"],
+      "color": "#3a4a28",
+      "effects": [
+        {
+          "type": "defense_turret",
+          "damage": 1,
+          "range": 70,
+          "hp": 6,
+          "attackCooldown": 1.4,
+          "slow": 0.3,
+          "slowDurationSec": 2,
+          "attackPresentation": {
+            "style": "underground_snare",
+            "spawnFrom": "target_feet",
+            "hitFrame": 5,
+            "frameRate": 10
+          }
+        }
+      ]
+    },
+    {
+      "id": "plant_acid_bloom",
+      "name": "酸蚀花",
+      "deck": "attack",
+      "shape": "standard",
+      "tags": ["attack_plant"],
+      "color": "#4a5a30",
+      "effects": [
+        {
+          "type": "plant_activation",
+          "consumeCardId": "acid_vial",
+          "toast": "酸蚀花已激活：强酸灌注完成"
+        },
+        {
+          "type": "defense_turret",
+          "requiresActivation": true,
+          "damage": 5,
+          "range": 100,
+          "hp": 4,
+          "attackCooldown": 2,
+          "onHitApply": [
+            { "type": "corrosion", "damagePerTick": 1, "intervalSec": 1, "durationSec": 3 }
+          ],
+          "attackPresentation": {
+            "style": "acid_splash",
+            "spawnFrom": "plant_muzzle",
+            "hitFrame": 4,
+            "frameRate": 11,
+            "onHitTint": "#6a7a48"
+          }
+        }
       ]
     },
     {
@@ -89,11 +206,19 @@
       "name": "看门犬",
       "deck": "attack",
       "shape": "standard",
-      "tags": ["unit", "guard"],
+      "tags": ["animal", "guard_beast", "unit", "guard"],
       "color": "#4a4038",
       "effects": [
         { "type": "guard_unit", "damage": 2, "speed": 50, "hp": 10, "engageRange": 80 }
       ]
+    },
+    {
+      "id": "pup_guard",
+      "name": "幼犬",
+      "deck": "attack",
+      "shape": "standard",
+      "tags": ["animal", "guard_beast", "juvenile"],
+      "color": "#5a4840"
     },
     {
       "id": "trap_wire",

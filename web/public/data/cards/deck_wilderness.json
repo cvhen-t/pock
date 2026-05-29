@@ -1,0 +1,107 @@
+{
+  "deck": "wilderness",
+  "cards": [
+    {
+      "id": "wild_soil_mound",
+      "name": "沃土丘",
+      "deck": "wilderness",
+      "shape": "wide",
+      "tags": ["worksite", "wild_node", "wild_soil", "resource_node"],
+      "color": "#4a4030",
+      "effects": [
+        {
+          "type": "spawn_timer",
+          "requiresStackTag": "survivor",
+          "outputCardId": "soil_clump",
+          "intervalSeconds": 14,
+          "maxOutputs": 12
+        }
+      ]
+    },
+    {
+      "id": "wild_ore_vein",
+      "name": "矿脉",
+      "deck": "wilderness",
+      "shape": "standard",
+      "tags": ["worksite", "wild_node", "wild_ore", "resource_node"],
+      "color": "#4a4848",
+      "effects": [
+        {
+          "type": "spawn_timer",
+          "requiresStackTag": "survivor",
+          "outputCardId": "scrap",
+          "intervalSeconds": 12,
+          "maxOutputs": 10
+        }
+      ]
+    },
+    {
+      "id": "wild_tree_grove",
+      "name": "枯木林",
+      "deck": "wilderness",
+      "shape": "standard",
+      "tags": ["worksite", "wild_node", "wild_tree", "resource_node"],
+      "color": "#4a4230",
+      "effects": [
+        {
+          "type": "spawn_timer",
+          "requiresStackTag": "survivor",
+          "outputCardId": "raw_timber",
+          "intervalSeconds": 12,
+          "maxOutputs": 14
+        }
+      ]
+    },
+    {
+      "id": "wild_lake",
+      "name": "荒原湖泊",
+      "deck": "wilderness",
+      "shape": "wide",
+      "tags": ["worksite", "wild_node", "wild_water", "resource_node"],
+      "color": "#3a4548",
+      "effects": [
+        {
+          "type": "spawn_timer",
+          "requiresStackTag": "survivor",
+          "outputCardId": "water_dirty",
+          "intervalSeconds": 11,
+          "maxOutputs": 12
+        }
+      ]
+    },
+    {
+      "id": "wild_gravel_beach",
+      "name": "砾石滩",
+      "deck": "wilderness",
+      "shape": "wide",
+      "tags": ["worksite", "wild_node", "resource_node"],
+      "color": "#5a5850",
+      "effects": [
+        {
+          "type": "spawn_timer",
+          "requiresStackTag": "survivor",
+          "outputCardId": "stone_chunk",
+          "intervalSeconds": 13,
+          "maxOutputs": 10
+        }
+      ]
+    },
+    {
+      "id": "wild_reed_marsh",
+      "name": "芦苇泽",
+      "deck": "wilderness",
+      "shape": "wide",
+      "tags": ["worksite", "wild_node", "resource_node"],
+      "color": "#3a4a40",
+      "effects": [
+        {
+          "type": "spawn_timer",
+          "requiresStackTag": "survivor",
+          "outputCardId": "reed_stalk",
+          "intervalSeconds": 10,
+          "maxOutputs": 12
+        }
+      ]
+    }
+  ]
+}

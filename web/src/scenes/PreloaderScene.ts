@@ -1,7 +1,8 @@
 import Phaser from 'phaser';
 
 import { BG_SCENE_URL, markBackgroundProcedural } from '../art/backgroundAssets';
-import { registerUndergroundVineVfx } from '../art/VineAttackFrames';
+import { ATTACK_VFX_MANIFEST, markAttackVfxProcedural } from '../art/attackVfxManifest';
+import { registerAllAttackVfx } from '../art/AttackVfxRegistry';
 import { ensureWastelandBackground, generateGameTextures } from '../art/TextureGenerator';
 import { TEX } from '../art/textureKeys';
 import { collectCardsFromCache, CARD_JSON_PATHS } from '../core/loadCards';
@@ -25,10 +26,15 @@ export default class PreloaderScene extends Phaser.Scene {
     for (const [key, path] of Object.entries(CARD_JSON_PATHS)) {
       this.load.json(key, path);
     }
-    this.load.json('recipes', 'data/recipes/starter.json');
+    this.load.json('recipes_starter', 'data/recipes/starter.json');
+    this.load.json('recipes_facility', 'data/recipes/facility.json');
     this.load.json('growth', 'data/growth/mutant_outcomes.json');
     this.load.json('invasion_enemies', 'data/invasion/enemies.json');
     this.load.json('invasion_waves', 'data/invasion/waves.json');
+    this.load.json('invasion_drops', 'data/invasion/drops.json');
+    this.load.json('packs', 'data/packs/packs.json');
+    this.load.json('shop', 'data/shop/shop.json');
+    this.load.json('player_guide', 'data/guide/player_guide.json');
 
     markBackgroundProcedural(this, false);
     this.load.image(TEX.BG_WASTELAND, BG_SCENE_URL);
@@ -39,7 +45,19 @@ export default class PreloaderScene extends Phaser.Scene {
       if (file.key === TEX.BG_WASTELAND) {
         markBackgroundProcedural(this, true);
       }
+      const vfx = ATTACK_VFX_MANIFEST.find((e) => e.atlasKey === file.key);
+      if (vfx) {
+        markAttackVfxProcedural(this, vfx.atlasKey, true);
+      }
     });
+
+    for (const entry of ATTACK_VFX_MANIFEST) {
+      markAttackVfxProcedural(this, entry.atlasKey, false);
+      this.load.spritesheet(entry.atlasKey, entry.pngPath, {
+        frameWidth: entry.frameW,
+        frameHeight: entry.frameH,
+      });
+    }
   }
 
   create(): void {
@@ -68,7 +86,7 @@ export default class PreloaderScene extends Phaser.Scene {
       ensureWastelandBackground(this, width, height);
     }
     generateGameTextures(this, cards.map((c) => c.id));
-    registerUndergroundVineVfx(this);
+    registerAllAttackVfx(this);
     this.scene.start('Game');
   }
 }

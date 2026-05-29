@@ -1,0 +1,68 @@
+{
+  "deck": "facility",
+  "cards": [
+    {
+      "id": "facility_workshop",
+      "name": "锈蚀工房",
+      "deck": "facility",
+      "shape": "tile",
+      "tags": ["building", "craft_station", "facility"],
+      "color": "#5a4a38",
+      "effects": [{ "type": "craft_station", "stationId": "workshop" }]
+    },
+    {
+      "id": "facility_smelter",
+      "name": "废土冶炼台",
+      "deck": "facility",
+      "shape": "tile",
+      "tags": ["building", "craft_station", "facility"],
+      "color": "#4a4038",
+      "effects": [{ "type": "craft_station", "stationId": "smelter" }]
+    },
+    {
+      "id": "facility_kitchen",
+      "name": "拼凑厨房",
+      "deck": "facility",
+      "shape": "tile",
+      "tags": ["building", "craft_station", "facility"],
+      "color": "#5c4a32",
+      "effects": [{ "type": "craft_station", "stationId": "kitchen" }]
+    },
+    {
+      "id": "facility_design_bureau",
+      "name": "废土设计院",
+      "deck": "facility",
+      "shape": "tile",
+      "tags": ["building", "craft_station", "facility"],
+      "color": "#4a4840",
+      "effects": [{ "type": "craft_station", "stationId": "design_bureau" }]
+    },
+    {
+      "id": "facility_greenhouse",
+      "name": "玻璃温室",
+      "deck": "facility",
+      "shape": "tile",
+      "tags": ["building", "craft_station", "facility"],
+      "color": "#4a5a48",
+      "effects": [{ "type": "craft_station", "stationId": "greenhouse" }]
+    },
+    {
+      "id": "facility_well",
+      "name": "渗滤井",
+      "deck": "facility",
+      "shape": "tile",
+      "tags": ["building", "craft_station", "facility"],
+      "color": "#3a4548",
+      "effects": [{ "type": "craft_station", "stationId": "well" }]
+    },
+    {
+      "id": "facility_warehouse",
+      "name": "储物棚",
+      "deck": "facility",
+      "shape": "wide",
+      "tags": ["building", "warehouse", "facility"],
+      "color": "#5a5040",
+      "effects": [{ "type": "warehouse", "maxStored": 8 }]
+    }
+  ]
+}

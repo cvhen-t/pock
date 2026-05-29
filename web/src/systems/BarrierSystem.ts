@@ -107,6 +107,23 @@ export class BarrierSystem {
     return { x: fromX, y: fromY, hitBarrier: true };
   }
 
+  getAttackableCards(): GameCard[] {
+    const cards: GameCard[] = [];
+    for (const s of this.barriers.values()) {
+      if (s.card.active && s.hp > 0) cards.push(s.card);
+    }
+    return cards;
+  }
+
+  /** Enemy melee strike on a barrier card. */
+  damageFromEnemy(card: GameCard, amount: number, now: number): void {
+    const s = this.barriers.get(card);
+    if (!s || !s.card.active) return;
+    if (now - s.lastDamagedMs < this.attackBarrierCooldownMs) return;
+    s.lastDamagedMs = now;
+    this.damageBarrier(s, Math.max(1, amount));
+  }
+
   healBarrier(card: GameCard, amount: number): void {
     const s = this.barriers.get(card);
     if (!s) return;

@@ -6,6 +6,7 @@ import { InvasionConfig } from '../core/InvasionConfig';
 import GameCard from '../objects/GameCard';
 import type { BaseCampSystem } from './BaseCampSystem';
 import type { BarrierSystem } from './BarrierSystem';
+import type { EnemyStatusSystem } from './EnemyStatusSystem';
 import type { TrapSystem } from './TrapSystem';
 
 export interface EnemyRuntime {
@@ -19,6 +20,15 @@ export interface EnemyRuntime {
   lastAttackMs: number;
 }
 
+type TargetKind = 'base' | 'survivor' | 'barrier';
+
+interface MoveTarget {
+  x: number;
+  y: number;
+  kind: TargetKind;
+  card?: GameCard;
+}
+
 export class InvasionSystem {
   readonly enemies = new Map<GameCard, EnemyRuntime>();
 
@@ -30,6 +40,8 @@ export class InvasionSystem {
 
   private paused = false;
 
+  private statusSystem?: EnemyStatusSystem;
+
   constructor(
     private readonly scene: Phaser.Scene,
     private readonly spawner: CardSpawner,
@@ -40,8 +52,8 @@ export class InvasionSystem {
   ) {
     this.config = invasionConfig;
 
-    const moon = this.getMoonIndex();
-    const tier = this.config.getTierForMoon(moon);
+    const day = this.getDayIndex();
+    const tier = this.config.getTierForDay(day);
 
     this.spawnTimer = scene.time.addEvent({
       delay: tier.spawnIntervalSec * 1000,
@@ -52,11 +64,15 @@ export class InvasionSystem {
     scene.time.delayedCall(this.config.firstSpawnDelaySec * 1000, () => this.trySpawn());
 
     scene.events.on(Phaser.Scenes.Events.UPDATE, this.tick, this);
-    scene.events.on('moon-end', () => {
+    scene.events.on('day-end', () => {
       this.surgeTriggered = false;
       this.restartSpawnTimer();
     });
     scene.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.destroy());
+  }
+
+  bindStatusSystem(status: EnemyStatusSystem): void {
+    this.statusSystem = status;
   }
 
   destroy(): void {
@@ -74,13 +90,13 @@ export class InvasionSystem {
     this.spawnTimer?.remove();
   }
 
-  private getMoonIndex(): number {
-    return (this.scene.registry.get(REGISTRY.MOON_INDEX) as number) ?? 1;
+  private getDayIndex(): number {
+    return (this.scene.registry.get(REGISTRY.DAY_INDEX) as number) ?? 1;
   }
 
   private restartSpawnTimer(): void {
     this.spawnTimer?.remove();
-    const tier = this.config.getTierForMoon(this.getMoonIndex());
+    const tier = this.config.getTierForDay(this.getDayIndex());
     this.spawnTimer = this.scene.time.addEvent({
       delay: tier.spawnIntervalSec * 1000,
       loop: true,
@@ -91,8 +107,8 @@ export class InvasionSystem {
   private trySpawn(): void {
     if (this.paused) return;
 
-    const moon = this.getMoonIndex();
-    const tier = this.config.getTierForMoon(moon);
+    const day = this.getDayIndex();
+    const tier = this.config.getTierForDay(day);
     if (this.enemies.size >= tier.maxAlive) return;
 
     const w = this.scene.scale.width;
@@ -123,7 +139,7 @@ export class InvasionSystem {
         y = boardBottom;
     }
 
-    const enemyId = this.config.pickEnemyId(moon);
+    const enemyId = this.config.pickEnemyId(day);
     const def = this.config.getEnemy(enemyId);
     if (!def) return;
 
@@ -149,22 +165,24 @@ export class InvasionSystem {
 
     this.checkSurge();
 
-    const target = this.getPrimaryTarget();
-    if (!target) return;
-
     const dt = delta / 1000;
     const now = this.scene.time.now;
-    const reachRadius = target.isBase
-      ? this.baseCamp.getContactRadius()
-      : 36;
 
     for (const runtime of this.enemies.values()) {
+      if (!runtime.card.active) continue;
+
+      const target = this.findNearestTarget(runtime.card.x, runtime.card.y);
+      if (!target) continue;
+
+      const reachRadius = this.getReachRadius(target);
       const dx = target.x - runtime.card.x;
       const dy = target.y - runtime.card.y;
       const dist = Math.hypot(dx, dy) || 1;
 
       if (dist > reachRadius) {
-        const slow = this.barriers.getSlowFactorAt(runtime.card.x, runtime.card.y);
+        const barrierSlow = this.barriers.getSlowFactorAt(runtime.card.x, runtime.card.y);
+        const debuffSlow = this.statusSystem?.getSlowFactor(runtime.card) ?? 0;
+        const slow = Math.max(barrierSlow, debuffSlow);
         const step = runtime.speed * (1 - slow) * dt;
         const toX = runtime.card.x + (dx / dist) * step;
         const toY = runtime.card.y + (dy / dist) * step;
@@ -175,28 +193,79 @@ export class InvasionSystem {
         this.traps.checkEnemy(runtime.card, now);
       } else if (now - runtime.lastAttackMs > this.getAttackCooldown(runtime, target)) {
         runtime.lastAttackMs = now;
-        if (target.isBase) {
-          this.scene.events.emit('enemy-reached-base', {
-            runtime,
-            damage: runtime.damage,
-          });
-        } else {
-          this.scene.events.emit('enemy-reached-survivor', runtime);
-        }
+        this.attackTarget(runtime, target, now);
       }
+    }
+  }
+
+  private findNearestTarget(ex: number, ey: number): MoveTarget | null {
+    let best: MoveTarget | null = null;
+    let bestDist = Infinity;
+
+    const consider = (x: number, y: number, kind: TargetKind, card?: GameCard) => {
+      const d = Math.hypot(x - ex, y - ey);
+      if (d < bestDist) {
+        bestDist = d;
+        best = { x, y, kind, card };
+      }
+    };
+
+    for (const card of this.barriers.getAttackableCards()) {
+      consider(card.x, card.y, 'barrier', card);
+    }
+
+    for (const card of this.getSurvivorCards()) {
+      consider(card.x, card.y, 'survivor', card);
+    }
+
+    const basePos = this.baseCamp.isActive ? this.baseCamp.getPosition() : null;
+    if (basePos) {
+      consider(basePos.x, basePos.y, 'base');
+    }
+
+    return best;
+  }
+
+  private getReachRadius(target: MoveTarget): number {
+    if (target.kind === 'base') return this.baseCamp.getContactRadius();
+    if (target.kind === 'barrier' && target.card) {
+      return Math.max(target.card.cardWidth, target.card.cardHeight) * 0.45;
+    }
+    return 36;
+  }
+
+  private attackTarget(runtime: EnemyRuntime, target: MoveTarget, now: number): void {
+    switch (target.kind) {
+      case 'barrier':
+        if (target.card) {
+          this.barriers.damageFromEnemy(target.card, runtime.damage, now);
+        }
+        break;
+      case 'base':
+        this.scene.events.emit('enemy-reached-base', {
+          runtime,
+          damage: runtime.damage,
+        });
+        break;
+      case 'survivor':
+        this.scene.events.emit('enemy-reached-survivor', {
+          runtime,
+          card: target.card,
+        });
+        break;
     }
   }
 
   private checkSurge(): void {
     if (this.surgeTriggered) return;
 
-    const moon = this.getMoonIndex();
-    const tier = this.config.getTierForMoon(moon);
-    const surge = tier.surgeOnMoonEnd;
+    const day = this.getDayIndex();
+    const tier = this.config.getTierForDay(day);
+    const surge = tier.surgeOnDayEnd;
     if (!surge) return;
 
     const remaining =
-      (this.scene.registry.get(REGISTRY.MOON_REMAINING) as number) ?? surge.leadSec + 1;
+      (this.scene.registry.get(REGISTRY.DAY_REMAINING) as number) ?? surge.leadSec + 1;
     if (remaining > surge.leadSec) return;
 
     this.surgeTriggered = true;
@@ -206,22 +275,8 @@ export class InvasionSystem {
     }
   }
 
-  private getAttackCooldown(
-    runtime: EnemyRuntime,
-    target: { isBase: boolean },
-  ): number {
-    return target.isBase ? runtime.contactCooldownMs : 2500;
-  }
-
-  private getPrimaryTarget(): { x: number; y: number; isBase: boolean } | null {
-    const basePos = this.baseCamp.isActive ? this.baseCamp.getPosition() : null;
-    if (basePos) {
-      return { ...basePos, isBase: true };
-    }
-    const survivors = this.getSurvivorPositions();
-    if (survivors.length === 0) return null;
-    const s = survivors[0]!;
-    return { x: s.x, y: s.y, isBase: false };
+  private getAttackCooldown(runtime: EnemyRuntime, target: MoveTarget): number {
+    return target.kind === 'base' ? runtime.contactCooldownMs : 2500;
   }
 
   damageEnemy(card: GameCard, amount: number): boolean {
@@ -230,20 +285,28 @@ export class InvasionSystem {
 
     runtime.hp -= amount;
     if (runtime.hp <= 0) {
+      const payload = {
+        enemyId: runtime.enemyId,
+        x: card.x,
+        y: card.y,
+      };
+      this.statusSystem?.removeEnemy(card);
       this.enemies.delete(card);
       card.destroy();
-      this.scene.events.emit('enemy-defeated', card);
+      this.scene.events.emit('enemy-defeated', payload);
       return true;
     }
     return false;
   }
 
-  private getSurvivorPositions(): { x: number; y: number }[] {
-    return this.scene.children.list
-      .filter(
-        (c): c is GameCard =>
-          c instanceof GameCard && (c.definition.tags ?? []).includes('survivor'),
-      )
-      .map((c) => ({ x: c.x, y: c.y }));
+  private getSurvivorCards(): GameCard[] {
+    return this.scene.children.list.filter(
+      (c): c is GameCard =>
+        c instanceof GameCard && (c.definition.tags ?? []).includes('survivor'),
+    );
+  }
+
+  getEnemyRuntime(card: GameCard): EnemyRuntime | undefined {
+    return this.enemies.get(card);
   }
 }

@@ -3,6 +3,7 @@ import Phaser from 'phaser';
 
 
 import { CardSpawner } from '../core/CardSpawner';
+import { getCardQuantity } from '../core/cardQuantity';
 
 import { collectCardsFromCache } from '../core/loadCards';
 
@@ -10,7 +11,6 @@ import { dataStore } from '../core/DataStore';
 
 import type { GrowthTables } from '../core/GrowthTables';
 
-import { REGISTRY } from '../config/gameConfig';
 import { effectRunner } from '../core/EffectRunner';
 
 import GameCard, { boardDepthFromY } from '../objects/GameCard';
@@ -21,11 +21,19 @@ import { CardStackSystem } from '../systems/CardStackSystem';
 
 import { DefenseTurretSystem } from '../systems/DefenseTurretSystem';
 
+import { EnemyStatusSystem } from '../systems/EnemyStatusSystem';
+
+import { PlantActivationSystem } from '../systems/PlantActivationSystem';
+
 import { PlantAttackVfxSystem } from '../systems/PlantAttackVfxSystem';
 
 import { InvasionSystem } from '../systems/InvasionSystem';
 
 import { MutantGrowthSystem } from '../systems/MutantGrowthSystem';
+
+import { CraftStationSystem } from '../systems/CraftStationSystem';
+
+import { RanchSystem } from '../systems/RanchSystem';
 
 import { ResourcePickupSystem } from '../systems/ResourcePickupSystem';
 
@@ -38,8 +46,8 @@ import { TrapSystem } from '../systems/TrapSystem';
 import { WorkSiteSystem } from '../systems/WorkSiteSystem';
 
 import GameBackground from '../ui/GameBackground';
-
 import HandBar from '../ui/HandBar';
+import ActionBar from '../ui/ActionBar';
 
 import {
 
@@ -53,11 +61,21 @@ import {
 
 } from '../ui/LayoutManager';
 
-import { clampStackToPlayfield } from '../ui/playfieldClamp';
+import { computeStarterBoardLayout } from '../config/starterBoardLayout';
+import { clampCardCenter, clampStackToPlayfield } from '../ui/playfieldClamp';
+import { tweenCardEnter } from '../ui/dragFx';
 
 import StackLane from '../ui/StackLane';
+import { StackDropHint } from '../ui/StackDropHint';
+import type { StackDropPreview } from '../core/stackOutcomePreview';
 
 import TopHud, { type ResourceSnapshot } from '../ui/TopHud';
+import { DropConfig } from '../core/DropConfig';
+import { ShopCatalog } from '../core/ShopCatalog';
+import { DropSystem } from '../systems/DropSystem';
+import { ShopBuildingSystem } from '../systems/ShopBuildingSystem';
+import TradePanel from '../ui/TradePanel';
+import GuidePanel, { type PlayerGuideData } from '../ui/GuidePanel';
 
 
 
@@ -77,11 +95,9 @@ export default class GameScene extends Phaser.Scene {
 
   private topHud!: TopHud;
 
+  private backpackBar!: HandBar;
 
-
-  private handBar!: HandBar;
-
-
+  private actionBar!: ActionBar;
 
   private stackLane!: StackLane;
 
@@ -115,6 +131,16 @@ export default class GameScene extends Phaser.Scene {
 
   private invasionConfig!: InvasionConfig;
 
+  private readonly dropConfig = new DropConfig();
+
+  private readonly shopCatalog = new ShopCatalog();
+
+  private tradePanel?: TradePanel;
+
+  private guidePanel?: GuidePanel;
+
+  private shopBuilding!: ShopBuildingSystem;
+
   private resources: ResourceSnapshot = { food: 4, water: 3, caps: 2 };
 
 
@@ -137,19 +163,24 @@ export default class GameScene extends Phaser.Scene {
 
   create(): void {
 
-    const recipes = this.cache.json.get('recipes') as {
-
-      recipes: import('../types/gameData').RecipeDefinition[];
-
-    };
-
     if (dataStore.getAllCards().length === 0) {
 
       dataStore.setCards(collectCardsFromCache(this.cache));
 
     }
 
-    dataStore.setRecipes(recipes.recipes);
+    this.dropConfig.load(this.cache.json.get('invasion_drops'));
+    this.shopCatalog.load(this.cache.json.get('shop'));
+    const starterRecipes = this.cache.json.get('recipes_starter') as {
+      recipes: import('../types/gameData').RecipeDefinition[];
+    };
+    const facilityRecipes = this.cache.json.get('recipes_facility') as {
+      recipes: import('../types/gameData').RecipeDefinition[];
+    };
+    dataStore.setRecipes([
+      ...(starterRecipes?.recipes ?? []),
+      ...(facilityRecipes?.recipes ?? []),
+    ]);
 
 
 
@@ -158,6 +189,8 @@ export default class GameScene extends Phaser.Scene {
 
 
     this.stackSystem = new CardStackSystem(this);
+
+    const stackDropHint = new StackDropHint(this);
 
     this.dragSystem = new CardDragSystem(
 
@@ -173,22 +206,50 @@ export default class GameScene extends Phaser.Scene {
       (sx, sy) => this.blocksBoardDrag(sx, sy),
     );
 
+    this.dragSystem.setDropHint(stackDropHint);
+
     this.spawner = new CardSpawner(this, this.stackSystem, this.dragSystem);
-    this.handBar = new HandBar(this, this.stackSystem, this.spawner);
+
+    this.actionBar = new ActionBar(this, this.stackSystem, this.spawner, {
+      getInventory: () => this.backpackBar.inventory,
+    });
+
+    this.backpackBar = new HandBar(this, this.stackSystem, this.spawner, {
+      orientation: 'vertical',
+      title: '背包',
+      emptyHint: '获得的卡牌\n拖出放置',
+      onTradeSellDrop: (cardId, sx, sy, wx, wy) => this.tryTradeSell(cardId, sx, sy, wx, wy),
+      onTradeSellHint: (cardId, wx, wy) => this.getSellDropPreview(cardId, wx, wy),
+      onActionBarDrop: (cardId, sx, sy) => this.actionBar.acceptFromBackpack(cardId, sx, sy),
+      onDragHover: (sx, sy) => this.updateActionBarDropHover(sx, sy),
+    });
+    this.backpackBar.setDropHint(stackDropHint);
+    this.actionBar.setDropHint(stackDropHint);
 
     this.dragSystem.setStoreInHand((card, sx, sy) => {
-      if (!this.handBar.containsScreenPoint(sx, sy)) return false;
-      if (!this.handBar.canStoreBoardCard(card)) {
-        this.showToast('该卡无法收入手牌', '#8b5a3a');
+      if (!this.backpackBar.containsScreenPoint(sx, sy)) return false;
+      if (!this.backpackBar.canStoreBoardCard(card)) {
+        this.showToast('该卡无法收入背包', '#8b5a3a');
         return false;
       }
       const name = card.definition.name;
-      if (!this.handBar.storeBoardCard(card, this.dragSystem)) return false;
-      this.showToast(`已收入手牌：${name}`, '#8a9a7a');
+      if (!this.backpackBar.storeBoardCard(card, this.dragSystem)) return false;
+      this.showToast(`已收入背包：${name}`, '#8a9a7a');
       return true;
     });
 
+    this.dragSystem.setDropToActionBar((card, sx, sy) => {
+      if (!this.actionBar.containsScreenPoint(sx, sy)) return false;
+      if (!this.actionBar.acceptFromBoard(card, this.dragSystem, sx, sy)) return false;
+      this.showToast(`已放入操作栏：${card.definition.name}`, '#8a9a7a');
+      return true;
+    });
+
+    this.dragSystem.setHoverScreen((sx, sy) => this.updateActionBarDropHover(sx, sy));
+
     this.dragSystem.setPlayfieldBounds(() => this.layout?.playfield);
+
+    this.dragSystem.setSellDrop((card, sx, sy) => this.tryTradeSellBoard(card, sx, sy));
 
     const growthTables = this.cache.json.get('growth') as GrowthTables;
 
@@ -222,13 +283,18 @@ export default class GameScene extends Phaser.Scene {
 
 
 
-    this.events.on('hand-add', ({ cardId }: { cardId: string }) => {
-
-      this.handBar.addCard(cardId, 1);
-
+    this.events.on('worksite-produced', ({ outputCardId }: { outputCardId: string }) => {
+      const def = dataStore.getCard(outputCardId);
+      this.showToast(`产出：${def?.name ?? outputCardId}`, '#8a9a7a');
     });
 
+    this.events.on('hand-add', ({ cardId }: { cardId: string }) => {
+      this.backpackBar.addCard(cardId, 1);
+    });
 
+    this.events.on('card-removed', (card: GameCard) => {
+      this.dragSystem.unregisterCard(card);
+    });
 
     this.events.on('drag-toast', (msg: string) => this.showToast(msg, '#8a9a7a'));
 
@@ -243,6 +309,9 @@ export default class GameScene extends Phaser.Scene {
       const def = dataStore.getCard(plantId);
 
       this.showToast(`长成：${def?.name ?? plantId}`, '#6a9a6a');
+      if (plantId === 'plant_acid_bloom') {
+        this.showToast('叠加强酸瓶以激活酸蚀花', '#8a9a7a');
+      }
 
     });
 
@@ -251,6 +320,13 @@ export default class GameScene extends Phaser.Scene {
       this.showToast('生长失败：污壤污染', '#8b5a3a');
 
     });
+
+    this.events.on(
+      'worksite-depleted',
+      (payload: { nodeName: string }) => {
+        this.showToast(`${payload.nodeName} 已采尽`, '#8a7a5a');
+      },
+    );
 
     this.events.on('invasion-spawn', () => {
 
@@ -272,8 +348,8 @@ export default class GameScene extends Phaser.Scene {
     this.events.on('base-repaired', ({ amount }: { amount: number }) => {
       this.showToast(`大本营修复 +${amount}`, '#6a9a6a');
     });
-    this.events.on('base-moon-regen', ({ amount }: { amount: number }) => {
-      this.showToast(`月相休整：本营 +${amount}`, '#8a9a7a');
+    this.events.on('base-day-regen', ({ amount }: { amount: number }) => {
+      this.showToast(`每日休整：本营 +${amount}`, '#8a9a7a');
     });
     this.events.on('barrier-destroyed', ({ name }: { name: string }) => {
       this.showToast(`${name} 被毁！`, '#8b5a3a');
@@ -283,7 +359,7 @@ export default class GameScene extends Phaser.Scene {
       else this.showToast(`陷阱造成 ${damage} 伤害`, '#8a9a7a');
     });
     this.events.on('invasion-surge', () => {
-      this.showToast('月末涌动！大量变异体来袭', '#b04040');
+      this.showToast('日末涌动！大量变异体来袭', '#b04040');
     });
 
     this.events.on('enemy-reached-base', ({ damage }: { damage: number }) => {
@@ -321,6 +397,8 @@ export default class GameScene extends Phaser.Scene {
 
     this.setupHud();
 
+    this.setupMetaUi();
+
     this.stackLane = new StackLane(
       this,
       this.stackSystem,
@@ -347,18 +425,37 @@ export default class GameScene extends Phaser.Scene {
     );
     traps.bindInvasion(this.invasion);
 
+    const enemyStatus = new EnemyStatusSystem(this, this.invasion);
+    this.invasion.bindStatusSystem(enemyStatus);
+
     new DefenseCraftSystem(this, this.stackSystem, this.baseCamp, this.barriers);
 
-    const plantAttackVfx = new PlantAttackVfxSystem(this, this.invasion);
-    new DefenseTurretSystem(this, this.invasion, plantAttackVfx);
+    new CraftStationSystem(this, this.stackSystem, this.spawner);
+
+    new RanchSystem(this, this.stackSystem, this.spawner);
+
+    new DropSystem(this, this.spawner, this.dropConfig, this.invasionConfig);
+
+    this.shopBuilding = new ShopBuildingSystem(this, this.stackSystem);
+    this.wireShopTradeHandlers();
+
+    const plantActivation = new PlantActivationSystem(this, this.stackSystem);
+    const plantAttackVfx = new PlantAttackVfxSystem(this, this.invasion, enemyStatus);
+    new DefenseTurretSystem(
+      this,
+      this.invasion,
+      plantAttackVfx,
+      enemyStatus,
+      plantActivation,
+    );
 
 
 
-    this.setupMoonCycle();
+    this.setupDayCycle();
 
 
 
-    this.events.on('moon-end', () => this.onMoonEnd());
+    this.events.on('day-end', () => this.onDayEnd());
 
 
 
@@ -383,19 +480,17 @@ export default class GameScene extends Phaser.Scene {
 
 
   private blocksBoardDrag(sx: number, sy: number): boolean {
-
-    if (this.handBar.isDraggingFromHand()) return false;
-
+    if (this.backpackBar.isDraggingFromHand() || this.actionBar.isDraggingFromBar()) {
+      return false;
+    }
     return (
-
       this.layout.topHud.contains(sx, sy) ||
-
       this.layout.stackLane.contains(sx, sy) ||
-
-      this.layout.handBar.contains(sx, sy)
-
+      this.layout.backpackBar.contains(sx, sy) ||
+      this.layout.actionBar.contains(sx, sy) ||
+      this.tradePanel?.containsPanelPoint(sx, sy) === true ||
+      this.guidePanel?.containsPanelPoint(sx, sy) === true
     );
-
   }
 
 
@@ -424,17 +519,19 @@ export default class GameScene extends Phaser.Scene {
 
     this.layout = this.computeCurrentLayout();
 
-    const { width } = this.scale;
+    const { width, height } = this.scale;
 
     const { topHud, playfield } = this.layout;
 
+    this.topHud.applyLayout(topHud.centerX, topHud.y + topHud.height / 2, width, topHud.height);
 
-
-    this.topHud.applyLayout(topHud.centerX, topHud.y + topHud.height / 2, width);
-
-    this.handBar.applyLayout(this.layout);
+    this.backpackBar.applyLayout(this.layout, this.layout.backpackBar);
+    this.actionBar.applyLayout(this.layout, this.layout.actionBar);
 
     this.stackLane.applyLayout(this.layout);
+
+    this.tradePanel?.applyLayout(width / 2, height / 2, width, height);
+    this.guidePanel?.applyLayout(width / 2, height / 2, width, height);
 
     this.background?.layoutPlayfield(playfield);
 
@@ -483,9 +580,165 @@ export default class GameScene extends Phaser.Scene {
 
     this.topHud.setResources(this.resources);
 
+    this.events.on('hud-action', ({ key }: { key: string; speed?: number }) => {
+      if (key === 'guide') {
+        this.guidePanel?.toggle();
+      } else if (key === 'settings') {
+        this.showToast('设置（即将推出）', '#8a9a7a');
+      } else if (key === 'speed') {
+        this.showToast('加速（即将推出）', '#8a9a7a');
+      }
+    });
   }
 
+  private setupMetaUi(): void {
+    const { width, height } = this.scale;
 
+    this.tradePanel = new TradePanel(this, this.shopCatalog, {
+      getCaps: () => this.resources.caps,
+      trySpendCaps: (amount) => {
+        if (this.resources.caps < amount) return false;
+        this.resources.caps -= amount;
+        this.syncBaseHud();
+        return true;
+      },
+      refundCaps: (amount) => {
+        this.resources.caps += amount;
+        this.syncBaseHud();
+        return true;
+      },
+      onBuyCardToPlayfield: (cardId, count, sx, sy, label) => {
+        if (!dataStore.getCard(cardId)) return false;
+        const pf = this.layout?.playfield;
+        if (!pf || !pf.contains(sx, sy)) return false;
+
+        const card = this.spawner.spawn(cardId, sx, sy, count);
+        if (!card) return false;
+
+        clampCardCenter(pf, card);
+        card.setDepth(boardDepthFromY(card.y));
+        tweenCardEnter(this, card, 1);
+        this.showToast(`购入：${label}`, '#8a9a7a');
+        return true;
+      },
+      isPlayfieldPoint: (sx, sy) => {
+        const pf = this.layout?.playfield;
+        return pf ? pf.contains(sx, sy) : false;
+      },
+      onSellCard: (cardId) => {
+        const def = dataStore.getCard(cardId);
+        if (!def) return 0;
+        const caps = this.shopCatalog.resolveSellCaps(cardId, def.tags ?? []);
+        if (caps <= 0) return 0;
+        this.resources.caps += caps;
+        this.syncBaseHud();
+        return caps;
+      },
+    });
+
+    const cx = width / 2;
+    const cy = height / 2;
+    this.tradePanel.applyLayout(cx, cy, width, height);
+
+    this.events.on('shop-trade-open', ({ card }: { card: GameCard }) => {
+      this.tradePanel?.openTrade(card);
+    });
+
+    const guideData = this.cache.json.get('player_guide') as PlayerGuideData | undefined;
+    if (guideData?.tabs?.length) {
+      this.guidePanel = new GuidePanel(this, guideData);
+      this.guidePanel.applyLayout(cx, cy, width, height);
+    }
+  }
+
+  private updateActionBarDropHover(sx: number, sy: number): void {
+    if (sx < 0) {
+      this.actionBar.setDropHover(false);
+      return;
+    }
+    this.actionBar.setDropHover(this.actionBar.containsScreenPoint(sx, sy));
+  }
+
+  private wireShopTradeHandlers(): void {
+    this.dragSystem.setSellHint((card, wx, wy) =>
+      this.getSellDropPreview(card.definition.id, wx, wy, card, getCardQuantity(card)),
+    );
+  }
+
+  private isSellDropTarget(
+    sx: number,
+    sy: number,
+    dragged?: GameCard,
+    wx?: number,
+    wy?: number,
+  ): boolean {
+    if (this.shopBuilding.findShopAtScreen(sx, sy)) return true;
+    if (dragged && this.shopBuilding.findShopForSell(dragged)) return true;
+    if (wx !== undefined && wy !== undefined && this.shopBuilding.findShopAtWorld(wx, wy)) {
+      return true;
+    }
+    return false;
+  }
+
+  private getSellDropPreview(
+    cardId: string,
+    wx: number,
+    wy: number,
+    dragged?: GameCard,
+    quantity = 1,
+  ): StackDropPreview | null {
+    const ptr = this.input.activePointer;
+    const overTarget =
+      (dragged && this.shopBuilding.findShopForSell(dragged) !== null) ||
+      this.shopBuilding.findShopAtWorld(wx, wy) !== null ||
+      this.shopBuilding.findShopAtScreen(ptr.x, ptr.y) !== null;
+
+    if (!overTarget) return null;
+
+    const def = dataStore.getCard(cardId);
+    const unitCaps = this.shopCatalog.resolveSellCaps(cardId, def?.tags ?? []);
+    if (unitCaps <= 0) {
+      return { primary: '无法收购', secondary: '商人不要' };
+    }
+    const caps = unitCaps * quantity;
+    const primary =
+      quantity > 1 ? `收购 +${caps} 筹 (×${quantity})` : `收购 +${caps} 筹`;
+    return { primary, secondary: '松手卖出' };
+  }
+
+  private executeSell(cardId: string, quantity = 1): boolean {
+    const def = dataStore.getCard(cardId);
+    if (!def) return false;
+    const unitCaps = this.shopCatalog.resolveSellCaps(cardId, def.tags ?? []);
+    if (unitCaps <= 0) {
+      this.showToast('商人不要这个', '#8b5a3a');
+      return false;
+    }
+    const caps = unitCaps * quantity;
+    this.resources.caps += caps;
+    this.syncBaseHud();
+    this.tradePanel?.refreshCapsIfOpen();
+    this.showToast(`出售 +${caps} 筹码`, '#8a9a7a');
+    return true;
+  }
+
+  private tryTradeSell(
+    cardId: string,
+    sx: number,
+    sy: number,
+    wx?: number,
+    wy?: number,
+  ): boolean {
+    if (!this.isSellDropTarget(sx, sy, undefined, wx, wy)) return false;
+    return this.executeSell(cardId);
+  }
+
+  private tryTradeSellBoard(card: GameCard, sx: number, sy: number): boolean {
+    const tags = card.definition.tags ?? [];
+    if (tags.includes('shop') || tags.includes('base')) return false;
+    if (!this.isSellDropTarget(sx, sy, card)) return false;
+    return this.executeSell(card.definition.id, getCardQuantity(card));
+  }
 
   private handleResize(gameSize: Phaser.Structs.Size): void {
 
@@ -510,42 +763,7 @@ export default class GameScene extends Phaser.Scene {
 
 
   private spawnStarterBoard(): void {
-
-    const pf = this.layout.playfield;
-
-    const cx = pf.centerX;
-
-    const cy = pf.centerY + pf.height * 0.02;
-
-    const spreadX = Math.min(88, pf.width * 0.26);
-
-    const spreadY = Math.min(88, pf.height * 0.12);
-
-    const layout: { id: string; x: number; y: number }[] = [
-
-      { id: 'base_camp', x: cx, y: cy },
-
-      { id: 'survivor', x: cx - spreadX * 0.55, y: cy - spreadY * 0.2 },
-
-      { id: 'rust_bush', x: cx + spreadX * 0.2, y: cy - spreadY * 0.32 },
-
-      { id: 'blight_plot', x: cx + spreadX * 0.2, y: cy + spreadY * 0.64 },
-
-      { id: 'seed_thornvine', x: cx - spreadX, y: cy + spreadY * 0.96 },
-
-      { id: 'plant_thornvine', x: cx + spreadX * 0.55, y: cy + spreadY * 0.5 },
-
-      { id: 'scrap_pile', x: cx - spreadX, y: cy - spreadY * 0.8 },
-
-      { id: 'fence_iron', x: cx + spreadX * 1.05, y: cy + spreadY * 0.18 },
-
-      { id: 'sandbag_wall', x: cx - spreadX * 1.05, y: cy + spreadY * 0.36 },
-
-      { id: 'caps', x: cx, y: cy - spreadY },
-
-    ];
-
-
+    const layout = computeStarterBoardLayout(this.layout.playfield);
 
     for (const item of layout) {
 
@@ -563,6 +781,8 @@ export default class GameScene extends Phaser.Scene {
 
       effectRunner.run(def.effects, { scene: this, sourceCardId: def.id });
 
+      this.events.emit('card-spawned', card);
+
     }
 
     this.clampAllBoardCards();
@@ -573,9 +793,9 @@ export default class GameScene extends Phaser.Scene {
 
 
 
-  private setupMoonCycle(): void {
+  private setupDayCycle(): void {
 
-    this.topHud.startMoonCycle(() => this.events.emit('moon-end'));
+    this.topHud.startDayCycle(() => this.events.emit('day-end'));
 
   }
 
@@ -601,7 +821,8 @@ export default class GameScene extends Phaser.Scene {
 
     this.gameOver = true;
 
-    this.handBar.setGameOver(true);
+    this.backpackBar.setGameOver(true);
+    this.actionBar.setGameOver(true);
 
     this.invasion.pauseSpawning();
 
@@ -633,14 +854,8 @@ export default class GameScene extends Phaser.Scene {
 
 
 
-  private onMoonEnd(): void {
+  private onDayEnd(): void {
     if (this.gameOver) return;
-
-    const moon = this.registry.get(REGISTRY.MOON_INDEX) as number;
-    if (moon >= 12 && this.baseCamp.isActive) {
-      this.onVictory();
-      return;
-    }
 
     const survivors = this.countTag('survivor');
 
@@ -652,7 +867,7 @@ export default class GameScene extends Phaser.Scene {
 
     if (this.resources.food < foodNeed || this.resources.water < waterNeed) {
 
-      this.showToast('月相结算：食物或净水不足！', '#8b3a3a');
+      this.showToast('每日结算：食物或净水不足！', '#8b3a3a');
 
     } else {
 
@@ -660,7 +875,7 @@ export default class GameScene extends Phaser.Scene {
 
       this.resources.water -= waterNeed;
 
-      this.showToast('月相结算：避难所撑过这一月相');
+      this.showToast('每日结算：避难所撑过这一天');
 
     }
 
@@ -668,26 +883,7 @@ export default class GameScene extends Phaser.Scene {
 
     this.syncBaseHud();
 
-    this.topHud.advanceMoon();
-
-  }
-
-  private onVictory(): void {
-    this.gameOver = true;
-    this.handBar.setGameOver(true);
-    this.invasion.pauseSpawning();
-    const pf = this.layout.playfield;
-    this.add
-      .text(pf.centerX, pf.centerY, '避难所站稳\n撑过 12 个月相', {
-        fontSize: '22px',
-        color: '#c9b896',
-        align: 'center',
-        backgroundColor: '#000000cc',
-        padding: { x: 24, y: 16 },
-      })
-      .setOrigin(0.5)
-      .setDepth(3000);
-    this.showToast('胜利：大本营守住了！', '#6a9a6a');
+    this.topHud.advanceDay();
   }
 
   private countTag(tag: string): number {

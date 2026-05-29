@@ -1,27 +1,10 @@
 import Phaser from 'phaser';
 import { ATTACK_VFX, VINE_FRAME_COUNT, VINE_FRAME_H, VINE_FRAME_W, } from './attackVfxKeys';
 /**
- * Procedural underground-vine spritesheet (8 frames) until
- * `public/assets/vfx/underground_vine.png` is wired in PreloaderScene.
+ * Procedural underground-vine spritesheet; skipped when PNG atlas loads in Preloader.
  */
-export function registerUndergroundVineVfx(scene) {
-    if (!scene.textures.exists(ATTACK_VFX.UNDERGROUND_VINE_ATLAS)) {
-        buildVineAtlas(scene);
-    }
-    if (!scene.textures.exists(ATTACK_VFX.DIRT_PARTICLE)) {
-        buildDirtParticle(scene);
-    }
-    if (!scene.anims.exists(ATTACK_VFX.UNDERGROUND_VINE_ANIM)) {
-        scene.anims.create({
-            key: ATTACK_VFX.UNDERGROUND_VINE_ANIM,
-            frames: scene.anims.generateFrameNumbers(ATTACK_VFX.UNDERGROUND_VINE_ATLAS, {
-                start: 0,
-                end: VINE_FRAME_COUNT - 1,
-            }),
-            frameRate: 12,
-            repeat: 0,
-        });
-    }
+export function buildUndergroundVineAtlasProcedural(scene) {
+    buildVineAtlas(scene);
 }
 function buildVineAtlas(scene) {
     const atlasW = VINE_FRAME_W * VINE_FRAME_COUNT;
@@ -35,15 +18,6 @@ function buildVineAtlas(scene) {
     for (let i = 0; i < VINE_FRAME_COUNT; i++) {
         tex.add(i, 0, i * VINE_FRAME_W, 0, VINE_FRAME_W, VINE_FRAME_H);
     }
-}
-function buildDirtParticle(scene) {
-    const g = scene.make.graphics({ x: 0, y: 0 }, false);
-    g.fillStyle(0x4a4034, 1);
-    g.fillCircle(4, 4, 3);
-    g.fillStyle(0x6a5a48, 0.7);
-    g.fillCircle(3, 3, 1.5);
-    g.generateTexture(ATTACK_VFX.DIRT_PARTICLE, 8, 8);
-    g.destroy();
 }
 /** Frame 0 crack → 1–3 emerge → 4–5 strike → 6 hit → 7 retract. */
 function drawVineFrame(g, ox, oy, frame) {

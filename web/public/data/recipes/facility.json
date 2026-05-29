@@ -1,0 +1,465 @@
+{
+  "recipes": [
+    {
+      "id": "well_dirty_to_clean",
+      "stationId": "well",
+      "inputs": [{ "cardId": "water_dirty", "count": 2 }],
+      "output": { "cardId": "water_clean", "count": 1 },
+      "workSeconds": 10
+    },
+    {
+      "id": "well_dirty_charcoal",
+      "stationId": "well",
+      "inputs": [{ "cardId": "water_dirty", "count": 4 }, { "cardId": "charcoal", "count": 1 }],
+      "output": { "cardId": "water_clean", "count": 3 },
+      "workSeconds": 16
+    },
+    {
+      "id": "kitchen_feed",
+      "stationId": "kitchen",
+      "inputs": [{ "cardId": "berry_mutant", "count": 2 }, { "cardId": "water_clean", "count": 1 }],
+      "output": { "cardId": "feed_bag", "count": 1 },
+      "workSeconds": 8
+    },
+    {
+      "id": "kitchen_mash_feed",
+      "stationId": "kitchen",
+      "inputs": [{ "cardId": "wheat_flour", "count": 1 }, { "cardId": "berry_mutant", "count": 1 }],
+      "output": { "cardId": "mash_feed", "count": 1 },
+      "workSeconds": 8
+    },
+    {
+      "id": "kitchen_wheat_flour",
+      "stationId": "kitchen",
+      "inputs": [{ "cardId": "iron_wheat_crop", "count": 2 }],
+      "output": { "cardId": "wheat_flour", "count": 1 },
+      "workSeconds": 8
+    },
+    {
+      "id": "kitchen_bread",
+      "stationId": "kitchen",
+      "inputs": [{ "cardId": "wheat_flour", "count": 1 }, { "cardId": "water_clean", "count": 1 }],
+      "output": { "cardId": "bread_crumbs", "count": 2 },
+      "workSeconds": 10
+    },
+    {
+      "id": "kitchen_preserved",
+      "stationId": "kitchen",
+      "inputs": [{ "cardId": "berry_mutant", "count": 2 }, { "cardId": "salt_crystal", "count": 1 }],
+      "output": { "cardId": "preserved_food", "count": 2 },
+      "workSeconds": 10
+    },
+    {
+      "id": "kitchen_mushroom_soup",
+      "stationId": "kitchen",
+      "inputs": [{ "cardId": "mushroom_cap", "count": 1 }, { "cardId": "water_clean", "count": 1 }],
+      "output": { "cardId": "mushroom_soup", "count": 1 },
+      "workSeconds": 10
+    },
+    {
+      "id": "kitchen_fried_egg",
+      "stationId": "kitchen",
+      "inputs": [{ "cardId": "egg_mutant", "count": 1 }, { "cardId": "water_clean", "count": 1 }],
+      "output": { "cardId": "fried_egg", "count": 2 },
+      "workSeconds": 8
+    },
+    {
+      "id": "kitchen_cheese",
+      "stationId": "kitchen",
+      "inputs": [{ "cardId": "goat_milk", "count": 1 }, { "cardId": "salt_crystal", "count": 1 }],
+      "output": { "cardId": "cheese", "count": 1 },
+      "workSeconds": 10
+    },
+    {
+      "id": "kitchen_smoked_meat",
+      "stationId": "kitchen",
+      "inputs": [
+        { "cardId": "raw_meat", "count": 2 },
+        { "cardId": "salt_crystal", "count": 1 },
+        { "cardId": "charcoal", "count": 1 }
+      ],
+      "output": { "cardId": "smoked_meat", "count": 2 },
+      "workSeconds": 12
+    },
+    {
+      "id": "kitchen_bone_meal",
+      "stationId": "kitchen",
+      "inputs": [{ "cardId": "raw_meat", "count": 1 }],
+      "output": { "cardId": "bone_meal", "count": 1 },
+      "workSeconds": 6
+    },
+    {
+      "id": "kitchen_rabbit_slaughter",
+      "stationId": "kitchen",
+      "inputs": [{ "cardId": "rabbit_iron", "count": 1 }, { "cardId": "water_clean", "count": 1 }],
+      "output": { "cardId": "raw_meat", "count": 2 },
+      "workSeconds": 10,
+      "consumeAnimals": true
+    },
+    {
+      "id": "kitchen_pig_slaughter",
+      "stationId": "kitchen",
+      "inputs": [{ "cardId": "pig_mutant", "count": 1 }, { "cardId": "salt_crystal", "count": 1 }],
+      "output": { "cardId": "raw_meat", "count": 4 },
+      "workSeconds": 14,
+      "consumeAnimals": true,
+      "extraOutputs": [{ "cardId": "lard_tin", "count": 1 }, { "cardId": "animal_hide", "count": 1 }]
+    },
+    {
+      "id": "kitchen_chicken_slaughter",
+      "stationId": "kitchen",
+      "inputs": [{ "cardId": "hen_rust", "count": 1 }],
+      "output": { "cardId": "raw_meat", "count": 1 },
+      "workSeconds": 8,
+      "consumeAnimals": true,
+      "extraOutputs": [{ "cardId": "feather_clump", "count": 2 }]
+    },
+    {
+      "id": "workshop_timber_plank",
+      "stationId": "workshop",
+      "inputs": [{ "cardId": "raw_timber", "count": 2 }],
+      "output": { "cardId": "wood_plank", "count": 1 },
+      "workSeconds": 8
+    },
+    {
+      "id": "workshop_charcoal",
+      "stationId": "workshop",
+      "inputs": [{ "cardId": "raw_timber", "count": 2 }],
+      "output": { "cardId": "charcoal", "count": 2 },
+      "workSeconds": 10
+    },
+    {
+      "id": "workshop_rope",
+      "stationId": "workshop",
+      "inputs": [{ "cardId": "plant_fiber", "count": 3 }],
+      "output": { "cardId": "rope_coil", "count": 1 },
+      "workSeconds": 8
+    },
+    {
+      "id": "workshop_compost",
+      "stationId": "workshop",
+      "inputs": [{ "cardId": "berry_mutant", "count": 2 }, { "cardId": "soil_clump", "count": 1 }],
+      "output": { "cardId": "compost", "count": 1 },
+      "workSeconds": 10
+    },
+    {
+      "id": "workshop_brick",
+      "stationId": "workshop",
+      "inputs": [{ "cardId": "soil_clump", "count": 2 }, { "cardId": "water_clean", "count": 1 }],
+      "output": { "cardId": "brick_clay", "count": 2 },
+      "workSeconds": 10
+    },
+    {
+      "id": "workshop_nails",
+      "stationId": "workshop",
+      "inputs": [{ "cardId": "scrap", "count": 2 }, { "cardId": "charcoal", "count": 1 }],
+      "output": { "cardId": "nail_box", "count": 1 },
+      "workSeconds": 10
+    },
+    {
+      "id": "workshop_resin",
+      "stationId": "workshop",
+      "inputs": [{ "cardId": "tar_blob", "count": 1 }, { "cardId": "plant_fiber", "count": 2 }],
+      "output": { "cardId": "resin_glue", "count": 1 },
+      "workSeconds": 12
+    },
+    {
+      "id": "workshop_fertilizer",
+      "stationId": "workshop",
+      "inputs": [{ "cardId": "compost", "count": 1 }, { "cardId": "mushroom_cap", "count": 1 }],
+      "output": { "cardId": "fertilizer", "count": 1 },
+      "workSeconds": 12
+    },
+    {
+      "id": "workshop_rope_feather",
+      "stationId": "workshop",
+      "inputs": [{ "cardId": "feather_clump", "count": 3 }],
+      "output": { "cardId": "rope_coil", "count": 1 },
+      "workSeconds": 8
+    },
+    {
+      "id": "workshop_tanned_hide",
+      "stationId": "workshop",
+      "inputs": [{ "cardId": "animal_hide", "count": 1 }, { "cardId": "resin_glue", "count": 1 }],
+      "output": { "cardId": "tanned_hide", "count": 1 },
+      "workSeconds": 10
+    },
+    {
+      "id": "workshop_salt",
+      "stationId": "workshop",
+      "inputs": [{ "cardId": "water_dirty", "count": 3 }, { "cardId": "charcoal", "count": 1 }],
+      "output": { "cardId": "salt_crystal", "count": 1 },
+      "workSeconds": 14
+    },
+    {
+      "id": "workshop_canvas",
+      "stationId": "workshop",
+      "inputs": [{ "cardId": "rope_coil", "count": 2 }, { "cardId": "tanned_hide", "count": 1 }],
+      "output": { "cardId": "canvas_strip", "count": 1 },
+      "workSeconds": 12
+    },
+    {
+      "id": "workshop_acid",
+      "stationId": "workshop",
+      "inputs": [{ "cardId": "mushroom_cap", "count": 2 }, { "cardId": "glass_shard", "count": 1 }],
+      "output": { "cardId": "acid_vial", "count": 1 },
+      "workSeconds": 14
+    },
+    {
+      "id": "workshop_protein",
+      "stationId": "workshop",
+      "inputs": [{ "cardId": "bone_meal", "count": 1 }, { "cardId": "lard_tin", "count": 1 }],
+      "output": { "cardId": "protein_pellet", "count": 1 },
+      "workSeconds": 12
+    },
+    {
+      "id": "workshop_blueprint",
+      "stationId": "workshop",
+      "inputs": [{ "cardId": "glass_shard", "count": 2 }, { "cardId": "wire_spool", "count": 1 }],
+      "output": { "cardId": "blueprint_chip", "count": 1 },
+      "workSeconds": 18
+    },
+    {
+      "id": "workshop_sun_fiber",
+      "stationId": "workshop",
+      "inputs": [{ "cardId": "crop_sun_pod", "count": 1 }],
+      "output": { "cardId": "plant_fiber", "count": 2 },
+      "workSeconds": 8
+    },
+    {
+      "id": "workshop_cactus_fiber",
+      "stationId": "workshop",
+      "inputs": [{ "cardId": "crop_cactus_pad", "count": 1 }],
+      "output": { "cardId": "plant_fiber", "count": 2 },
+      "workSeconds": 8
+    },
+    {
+      "id": "smelter_iron",
+      "stationId": "smelter",
+      "inputs": [{ "cardId": "rust_shard", "count": 2 }, { "cardId": "charcoal", "count": 2 }],
+      "output": { "cardId": "iron_ingot", "count": 1 },
+      "workSeconds": 14
+    },
+    {
+      "id": "smelter_wire",
+      "stationId": "smelter",
+      "inputs": [{ "cardId": "iron_ingot", "count": 1 }, { "cardId": "scrap", "count": 1 }],
+      "output": { "cardId": "wire_spool", "count": 1 },
+      "workSeconds": 10
+    },
+    {
+      "id": "smelter_plate",
+      "stationId": "smelter",
+      "inputs": [{ "cardId": "iron_ingot", "count": 2 }, { "cardId": "charcoal", "count": 1 }],
+      "output": { "cardId": "iron_plate", "count": 1 },
+      "workSeconds": 16
+    },
+    {
+      "id": "smelter_fuel",
+      "stationId": "smelter",
+      "inputs": [{ "cardId": "tar_blob", "count": 1 }, { "cardId": "acid_vial", "count": 1 }],
+      "output": { "cardId": "fuel_can", "count": 1 },
+      "workSeconds": 16,
+      "dayMin": 4
+    },
+    {
+      "id": "greenhouse_wheat_seed",
+      "stationId": "greenhouse",
+      "inputs": [{ "cardId": "plant_fiber", "count": 2 }, { "cardId": "soil_clump", "count": 1 }],
+      "output": { "cardId": "iron_wheat_seed", "count": 1 },
+      "workSeconds": 12
+    },
+    {
+      "id": "greenhouse_seed_boost",
+      "stationId": "greenhouse",
+      "inputs": [{ "cardId": "fertilizer", "count": 1 }, { "tag": "seed", "count": 1 }],
+      "output": { "cardId": "_same_seed", "count": 2 },
+      "workSeconds": 14
+    },
+    {
+      "id": "greenhouse_mushroom",
+      "stationId": "greenhouse",
+      "inputs": [{ "cardId": "seed_mycelium", "count": 1 }, { "cardId": "compost", "count": 1 }],
+      "output": { "cardId": "mushroom_cap", "count": 2 },
+      "workSeconds": 10
+    },
+    {
+      "id": "greenhouse_cactus_seed",
+      "stationId": "greenhouse",
+      "inputs": [{ "cardId": "crop_cactus_pad", "count": 2 }, { "cardId": "fertilizer", "count": 1 }],
+      "output": { "cardId": "seed_cactus", "count": 1 },
+      "workSeconds": 12
+    },
+    {
+      "id": "design_fence",
+      "stationId": "design_bureau",
+      "inputs": [{ "cardId": "scrap", "count": 2 }, { "cardId": "wood_plank", "count": 1 }],
+      "output": { "cardId": "fence_iron", "count": 1 },
+      "workSeconds": 10
+    },
+    {
+      "id": "design_barricade",
+      "stationId": "design_bureau",
+      "inputs": [{ "cardId": "wood_plank", "count": 2 }, { "cardId": "nail_box", "count": 1 }],
+      "output": { "cardId": "barricade_wood", "count": 1 },
+      "workSeconds": 8
+    },
+    {
+      "id": "design_sandbag",
+      "stationId": "design_bureau",
+      "inputs": [
+        { "cardId": "scrap", "count": 3 },
+        { "cardId": "wood_plank", "count": 2 },
+        { "cardId": "canvas_strip", "count": 1 }
+      ],
+      "output": { "cardId": "sandbag_wall", "count": 1 },
+      "workSeconds": 14
+    },
+    {
+      "id": "design_blight",
+      "stationId": "design_bureau",
+      "inputs": [{ "cardId": "soil_clump", "count": 3 }, { "cardId": "compost", "count": 1 }],
+      "output": { "cardId": "blight_plot", "count": 1 },
+      "workSeconds": 8
+    },
+    {
+      "id": "design_farmland",
+      "stationId": "design_bureau",
+      "inputs": [{ "cardId": "soil_clump", "count": 2 }, { "cardId": "brick_clay", "count": 2 }],
+      "output": { "cardId": "farmland", "count": 1 },
+      "workSeconds": 10,
+      "dayMin": 2
+    },
+    {
+      "id": "design_spike",
+      "stationId": "design_bureau",
+      "inputs": [{ "cardId": "scrap", "count": 2 }, { "cardId": "wire_spool", "count": 1 }],
+      "output": { "cardId": "spike_strip", "count": 1 },
+      "workSeconds": 12,
+      "dayMin": 3
+    },
+    {
+      "id": "design_gate",
+      "stationId": "design_bureau",
+      "inputs": [{ "cardId": "iron_plate", "count": 1 }, { "cardId": "scrap", "count": 4 }],
+      "output": { "cardId": "gate_scrap", "count": 1 },
+      "workSeconds": 16,
+      "dayMin": 4
+    },
+    {
+      "id": "design_workshop",
+      "stationId": "design_bureau",
+      "inputs": [{ "cardId": "scrap", "count": 4 }, { "cardId": "wood_plank", "count": 2 }],
+      "output": { "cardId": "facility_workshop", "count": 1 },
+      "workSeconds": 14
+    },
+    {
+      "id": "design_smelter",
+      "stationId": "design_bureau",
+      "inputs": [
+        { "cardId": "iron_ingot", "count": 1 },
+        { "cardId": "brick_clay", "count": 4 },
+        { "cardId": "scrap", "count": 2 }
+      ],
+      "output": { "cardId": "facility_smelter", "count": 1 },
+      "workSeconds": 18
+    },
+    {
+      "id": "design_kitchen",
+      "stationId": "design_bureau",
+      "inputs": [{ "cardId": "wood_plank", "count": 3 }, { "cardId": "brick_clay", "count": 2 }],
+      "output": { "cardId": "facility_kitchen", "count": 1 },
+      "workSeconds": 14
+    },
+    {
+      "id": "design_greenhouse",
+      "stationId": "design_bureau",
+      "inputs": [
+        { "cardId": "glass_shard", "count": 4 },
+        { "cardId": "wood_plank", "count": 2 },
+        { "cardId": "canvas_strip", "count": 1 }
+      ],
+      "output": { "cardId": "facility_greenhouse", "count": 1 },
+      "workSeconds": 20,
+      "dayMin": 3
+    },
+    {
+      "id": "design_well",
+      "stationId": "design_bureau",
+      "inputs": [{ "cardId": "stone_chunk", "count": 4 }, { "cardId": "rope_coil", "count": 2 }],
+      "output": { "cardId": "facility_well", "count": 1 },
+      "workSeconds": 14
+    },
+    {
+      "id": "design_warehouse",
+      "stationId": "design_bureau",
+      "inputs": [{ "cardId": "wood_plank", "count": 4 }, { "cardId": "nail_box", "count": 1 }],
+      "output": { "cardId": "facility_warehouse", "count": 1 },
+      "workSeconds": 12
+    },
+    {
+      "id": "design_snare_seed",
+      "stationId": "design_bureau",
+      "inputs": [{ "cardId": "wire_spool", "count": 2 }, { "cardId": "wood_plank", "count": 2 }],
+      "output": { "cardId": "seed_snare", "count": 1 },
+      "workSeconds": 14,
+      "dayMin": 5
+    },
+    {
+      "id": "design_chicken_coop",
+      "stationId": "design_bureau",
+      "inputs": [{ "cardId": "wood_plank", "count": 3 }, { "cardId": "scrap", "count": 2 }, { "tag": "feed", "count": 1 }],
+      "output": { "cardId": "chicken_coop", "count": 1 },
+      "workSeconds": 16,
+      "dayMin": 3
+    },
+    {
+      "id": "design_goat_pen",
+      "stationId": "design_bureau",
+      "inputs": [{ "cardId": "wood_plank", "count": 4 }, { "cardId": "rope_coil", "count": 2 }, { "tag": "feed", "count": 1 }],
+      "output": { "cardId": "goat_pen", "count": 1 },
+      "workSeconds": 18,
+      "dayMin": 4
+    },
+    {
+      "id": "design_rabbit_hutch",
+      "stationId": "design_bureau",
+      "inputs": [{ "cardId": "wood_plank", "count": 2 }, { "cardId": "scrap", "count": 1 }, { "cardId": "feather_clump", "count": 2 }],
+      "output": { "cardId": "rabbit_hutch", "count": 1 },
+      "workSeconds": 12,
+      "dayMin": 3
+    },
+    {
+      "id": "design_pig_sty",
+      "stationId": "design_bureau",
+      "inputs": [
+        { "cardId": "wood_plank", "count": 4 },
+        { "cardId": "brick_clay", "count": 3 },
+        { "cardId": "mash_feed", "count": 1 }
+      ],
+      "output": { "cardId": "pig_sty", "count": 1 },
+      "workSeconds": 20,
+      "dayMin": 5
+    },
+    {
+      "id": "design_kennel",
+      "stationId": "design_bureau",
+      "inputs": [{ "cardId": "wood_plank", "count": 2 }, { "cardId": "wire_spool", "count": 1 }, { "tag": "feed", "count": 2 }],
+      "output": { "cardId": "kennel", "count": 1 },
+      "workSeconds": 16,
+      "dayMin": 4
+    },
+    {
+      "id": "design_insect_crate",
+      "stationId": "design_bureau",
+      "inputs": [
+        { "cardId": "glass_shard", "count": 2 },
+        { "cardId": "wood_plank", "count": 2 },
+        { "cardId": "mash_feed", "count": 2 }
+      ],
+      "output": { "cardId": "insect_crate", "count": 1 },
+      "workSeconds": 18,
+      "dayMin": 6
+    }
+  ]
+}

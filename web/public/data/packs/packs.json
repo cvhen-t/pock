@@ -1,0 +1,44 @@
+{
+  "packs": [
+    {
+      "id": "pack_resource",
+      "name": "资源补给包",
+      "description": "食物与材料",
+      "costCaps": 3,
+      "draws": 2,
+      "pool": [
+        { "cardId": "berry_mutant", "weight": 35 },
+        { "cardId": "scrap", "weight": 25 },
+        { "cardId": "wood_plank", "weight": 20 },
+        { "cardId": "soil_clump", "weight": 12 },
+        { "cardId": "canned_food", "weight": 8 }
+      ]
+    },
+    {
+      "id": "pack_attack",
+      "name": "攻击种子包",
+      "description": "武器与变异种子",
+      "costCaps": 4,
+      "draws": 1,
+      "pool": [
+        { "cardId": "seed_thornvine", "weight": 40 },
+        { "cardId": "seed_spore", "weight": 25 },
+        { "cardId": "rusty_machete", "weight": 20 },
+        { "cardId": "molotov", "weight": 15 }
+      ]
+    },
+    {
+      "id": "pack_defense",
+      "name": "防御工事包",
+      "description": "栅栏与陷阱",
+      "costCaps": 4,
+      "draws": 1,
+      "pool": [
+        { "cardId": "fence_iron", "weight": 30 },
+        { "cardId": "barricade_wood", "weight": 30 },
+        { "cardId": "spike_strip", "weight": 25 },
+        { "cardId": "barbed_roll", "weight": 15 }
+      ]
+    }
+  ]
+}

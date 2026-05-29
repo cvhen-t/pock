@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { REGISTRY } from '../config/gameConfig';
+import { REGISTRY, SECONDS_PER_DAY } from '../config/gameConfig';
 
 export default class BootScene extends Phaser.Scene {
   constructor() {
@@ -7,8 +7,8 @@ export default class BootScene extends Phaser.Scene {
   }
 
   create(): void {
-    this.registry.set(REGISTRY.MOON_SECONDS, 120);
-    this.registry.set(REGISTRY.MOON_INDEX, 1);
+    this.registry.set(REGISTRY.DAY_SECONDS, SECONDS_PER_DAY);
+    this.registry.set(REGISTRY.DAY_INDEX, 1);
     this.scene.start('Preloader');
   }
 }

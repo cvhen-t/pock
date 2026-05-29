@@ -8,14 +8,28 @@ export interface EnemyConfig {
   contactDamage: number;
   contactCooldownSec: number;
   targetPreference?: string;
+  tags?: string[];
 }
 
 export interface WaveTier {
-  moonMin: number;
-  moonMax: number;
+  dayMin: number;
+  dayMax: number;
   spawnIntervalSec: number;
   maxAlive: number;
   pool: { result: string; weight: number }[];
+  surgeOnDayEnd?: { count: number; leadSec: number };
+}
+
+/** Raw tier row from JSON — supports legacy moon* field names. */
+interface WaveTierJson {
+  dayMin?: number;
+  dayMax?: number;
+  moonMin?: number;
+  moonMax?: number;
+  spawnIntervalSec: number;
+  maxAlive: number;
+  pool: { enemyId?: string; result?: string; weight: number }[];
+  surgeOnDayEnd?: { count: number; leadSec: number };
   surgeOnMoonEnd?: { count: number; leadSec: number };
 }
 
@@ -23,7 +37,7 @@ export interface WavesFile {
   defaultSpawnIntervalSec: number;
   defaultMaxAlive: number;
   firstSpawnDelaySec: number;
-  tiers: WaveTier[];
+  tiers: WaveTierJson[];
 }
 
 interface EnemyJsonRow {
@@ -34,6 +48,21 @@ interface EnemyJsonRow {
   contactDamage: number | { amount?: number };
   contactCooldownSec: number;
   targetPreference?: string;
+  tags?: string[];
+}
+
+function normalizeTier(raw: WaveTierJson): WaveTier {
+  return {
+    dayMin: raw.dayMin ?? raw.moonMin ?? 1,
+    dayMax: raw.dayMax ?? raw.moonMax ?? 99,
+    spawnIntervalSec: raw.spawnIntervalSec,
+    maxAlive: raw.maxAlive,
+    pool: raw.pool.map((p) => ({
+      result: p.result ?? p.enemyId ?? 'mutant_hound',
+      weight: p.weight,
+    })),
+    surgeOnDayEnd: raw.surgeOnDayEnd ?? raw.surgeOnMoonEnd,
+  };
 }
 
 export class InvasionConfig {
@@ -58,10 +87,11 @@ export class InvasionConfig {
         contactDamage: dmg,
         contactCooldownSec: raw.contactCooldownSec,
         targetPreference: raw.targetPreference,
+        tags: raw.tags,
       });
     }
 
-    this.tiers = wavesJson.tiers ?? [];
+    this.tiers = (wavesJson.tiers ?? []).map(normalizeTier);
     this.defaults = {
       spawnIntervalSec: wavesJson.defaultSpawnIntervalSec ?? 28,
       maxAlive: wavesJson.defaultMaxAlive ?? 3,
@@ -73,12 +103,12 @@ export class InvasionConfig {
     return this.enemies.get(id);
   }
 
-  getTierForMoon(moon: number): WaveTier {
-    const tier = this.tiers.find((t) => moon >= t.moonMin && moon <= t.moonMax);
+  getTierForDay(day: number): WaveTier {
+    const tier = this.tiers.find((t) => day >= t.dayMin && day <= t.dayMax);
     return (
       tier ?? {
-        moonMin: 1,
-        moonMax: 99,
+        dayMin: 1,
+        dayMax: 99,
         spawnIntervalSec: this.defaults.spawnIntervalSec,
         maxAlive: this.defaults.maxAlive,
         pool: [{ result: 'mutant_hound', weight: 100 }],
@@ -86,8 +116,8 @@ export class InvasionConfig {
     );
   }
 
-  pickEnemyId(moon: number): string {
-    const tier = this.getTierForMoon(moon);
+  pickEnemyId(day: number): string {
+    const tier = this.getTierForDay(day);
     return pickWeightedOutcome(tier.pool);
   }
 

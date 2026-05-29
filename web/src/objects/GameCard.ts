@@ -11,10 +11,19 @@ export default class GameCard extends Phaser.GameObjects.Container {
   readonly metrics: CardMetrics;
   stackId: string | null = null;
 
+  /** 0 = default, 1 = rotated 90° (slim ↔ wide footprint). */
+  orientation = 0;
+
+  private readonly face: Phaser.GameObjects.Container;
+
+  /** Stack count for resource cards (shown top-right when > 1). */
+  quantity = 1;
+
   private shell: Phaser.GameObjects.Image;
   private inner: Phaser.GameObjects.Rectangle;
   private icon: Phaser.GameObjects.Image;
   private label: Phaser.GameObjects.Text;
+  private qtyBadge: Phaser.GameObjects.Text;
 
   constructor(scene: Phaser.Scene, x: number, y: number, definition: CardDefinition) {
     super(scene, x, y);
@@ -26,6 +35,8 @@ export default class GameCard extends Phaser.GameObjects.Container {
     const layout = layoutCardContent(shape, this.metrics);
     const color = Phaser.Display.Color.HexStringToColor(definition.color ?? '#4a4540').color;
     const shellKey = shellTextureForShape(shape);
+
+    this.face = scene.add.container(0, 0);
 
     this.shell = scene.add.image(0, 0, shellKey);
     this.shell.setOrigin(0.5);
@@ -54,7 +65,7 @@ export default class GameCard extends Phaser.GameObjects.Container {
       0.75,
     );
 
-    const children: Phaser.GameObjects.GameObject[] = [this.shell, this.inner, this.icon, divider];
+    const faceChildren: Phaser.GameObjects.GameObject[] = [this.shell, this.inner, this.icon, divider];
 
     if (layout.nameplate) {
       const plate = scene.add.rectangle(
@@ -66,7 +77,7 @@ export default class GameCard extends Phaser.GameObjects.Container {
         0.55,
       );
       plate.setStrokeStyle(1, 0x2a2620, 0.4);
-      children.push(plate);
+      faceChildren.push(plate);
     }
 
     this.label = scene.add.text(layout.label.x, layout.label.y, definition.name, {
@@ -80,18 +91,65 @@ export default class GameCard extends Phaser.GameObjects.Container {
     });
     this.label.setOrigin(0.5, shape === 'wide' ? 0.5 : 1);
 
-    children.push(this.label);
-    this.add(children);
-    this.setSize(w, h);
+    this.qtyBadge = scene.add.text(w / 2 - 6, -h / 2 + 5, '', {
+      fontFamily: 'system-ui, sans-serif',
+      fontSize: '11px',
+      color: '#f0e8d8',
+      stroke: '#1a1612',
+      strokeThickness: 2,
+    });
+    this.qtyBadge.setOrigin(1, 0);
+    this.qtyBadge.setVisible(false);
+
+    faceChildren.push(this.label, this.qtyBadge);
+    this.face.add(faceChildren);
+    this.add(this.face);
+    this.syncHitSize();
+    this.syncQuantityBadge();
     scene.add.existing(this);
   }
 
+  setQuantity(value: number): void {
+    this.quantity = Math.max(1, Math.floor(value));
+    this.syncQuantityBadge();
+  }
+
+  addQuantity(delta: number): void {
+    if (delta <= 0) return;
+    this.setQuantity(this.quantity + delta);
+  }
+
+  private syncQuantityBadge(): void {
+    this.qtyBadge.setVisible(this.quantity > 1);
+    this.qtyBadge.setText(this.quantity > 99 ? '99+' : String(this.quantity));
+  }
+
   get cardWidth(): number {
-    return this.metrics.w;
+    const { w, h } = this.metrics;
+    return this.orientation === 1 ? h : w;
   }
 
   get cardHeight(): number {
-    return this.metrics.h;
+    const { w, h } = this.metrics;
+    return this.orientation === 1 ? w : h;
+  }
+
+  /** Toggle 90° rotation (slim ↔ wide footprint). */
+  toggleRotation(): void {
+    this.orientation = this.orientation === 0 ? 1 : 0;
+    this.scene.tweens.killTweensOf(this.face);
+    this.scene.tweens.add({
+      targets: this.face,
+      angle: this.orientation * 90,
+      duration: 120,
+      ease: 'Quad.easeOut',
+    });
+    this.syncHitSize();
+    this.scene.events.emit('card-rotated', this);
+  }
+
+  syncHitSize(): void {
+    this.setSize(this.cardWidth, this.cardHeight);
   }
 }
 

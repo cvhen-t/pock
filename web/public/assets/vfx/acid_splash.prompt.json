@@ -1,0 +1,12 @@
+{
+  "styleDoc": "docs/art-style-prompt.md",
+  "assetType": "vfx",
+  "positive": "post-apocalyptic survival game VFX spritesheet, 7 frames horizontal, dull yellow-green acid droplet arc and ground splash corrosion, muted wasteland, hand-painted, no neon",
+  "negative": "neon, cyberpunk, anime, bright colors, text",
+  "aspectRatio": "77:10",
+  "frameWidth": 88,
+  "frameHeight": 80,
+  "frameCount": 7,
+  "tool": "bake-attack-vfx",
+  "notes": "酸蚀花酸液攻击动画"
+}

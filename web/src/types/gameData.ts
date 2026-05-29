@@ -1,4 +1,4 @@
-export type CardDeck = 'resource' | 'attack' | 'defense';
+export type CardDeck = 'resource' | 'attack' | 'defense' | 'wilderness' | 'facility';
 
 /** Visual footprint on the board. */
 export type CardShape = 'standard' | 'compact' | 'slim' | 'wide' | 'tile';
@@ -30,10 +30,23 @@ export interface RecipeInput {
   count: number;
 }
 
+export interface RecipeExtraOutput {
+  cardId: string;
+  count?: number;
+}
+
 export interface RecipeDefinition {
   id: string;
   inputs: RecipeInput[];
   output: { cardId: string; count?: number };
   workSeconds?: number;
   manualUnlock?: string;
+  /** Facility craft station id (workshop, kitchen, …). */
+  stationId?: string;
+  dayMin?: number;
+  /** @deprecated Use dayMin — kept for legacy recipe JSON. */
+  moonPhaseMin?: number;
+  /** Slaughter recipes consume animal members. */
+  consumeAnimals?: boolean;
+  extraOutputs?: RecipeExtraOutput[];
 }

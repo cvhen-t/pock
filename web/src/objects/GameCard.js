@@ -7,10 +7,16 @@ export default class GameCard extends Phaser.GameObjects.Container {
     definition;
     metrics;
     stackId = null;
+    /** 0 = default, 1 = rotated 90° (slim ↔ wide footprint). */
+    orientation = 0;
+    face;
+    /** Stack count for resource cards (shown top-right when > 1). */
+    quantity = 1;
     shell;
     inner;
     icon;
     label;
+    qtyBadge;
     constructor(scene, x, y, definition) {
         super(scene, x, y);
         this.definition = definition;
@@ -20,6 +26,7 @@ export default class GameCard extends Phaser.GameObjects.Container {
         const layout = layoutCardContent(shape, this.metrics);
         const color = Phaser.Display.Color.HexStringToColor(definition.color ?? '#4a4540').color;
         const shellKey = shellTextureForShape(shape);
+        this.face = scene.add.container(0, 0);
         this.shell = scene.add.image(0, 0, shellKey);
         this.shell.setOrigin(0.5);
         this.shell.setDisplaySize(w + 2, h + 2);
@@ -29,11 +36,11 @@ export default class GameCard extends Phaser.GameObjects.Container {
         this.icon = scene.add.image(layout.icon.x, layout.icon.y, iconKey);
         this.icon.setDisplaySize(iconSize, iconSize);
         const divider = scene.add.rectangle(layout.divider.x, layout.divider.y, layout.divider.w, 1, 0x2a2620, 0.75);
-        const children = [this.shell, this.inner, this.icon, divider];
+        const faceChildren = [this.shell, this.inner, this.icon, divider];
         if (layout.nameplate) {
             const plate = scene.add.rectangle(layout.nameplate.x, layout.nameplate.y, layout.nameplate.w, layout.nameplate.h, 0x1a1612, 0.55);
             plate.setStrokeStyle(1, 0x2a2620, 0.4);
-            children.push(plate);
+            faceChildren.push(plate);
         }
         this.label = scene.add.text(layout.label.x, layout.label.y, definition.name, {
             fontFamily: 'system-ui, sans-serif',
@@ -45,16 +52,58 @@ export default class GameCard extends Phaser.GameObjects.Container {
             wordWrap: { width: layout.label.maxWidth },
         });
         this.label.setOrigin(0.5, shape === 'wide' ? 0.5 : 1);
-        children.push(this.label);
-        this.add(children);
-        this.setSize(w, h);
+        this.qtyBadge = scene.add.text(w / 2 - 6, -h / 2 + 5, '', {
+            fontFamily: 'system-ui, sans-serif',
+            fontSize: '11px',
+            color: '#f0e8d8',
+            stroke: '#1a1612',
+            strokeThickness: 2,
+        });
+        this.qtyBadge.setOrigin(1, 0);
+        this.qtyBadge.setVisible(false);
+        faceChildren.push(this.label, this.qtyBadge);
+        this.face.add(faceChildren);
+        this.add(this.face);
+        this.syncHitSize();
+        this.syncQuantityBadge();
         scene.add.existing(this);
     }
+    setQuantity(value) {
+        this.quantity = Math.max(1, Math.floor(value));
+        this.syncQuantityBadge();
+    }
+    addQuantity(delta) {
+        if (delta <= 0)
+            return;
+        this.setQuantity(this.quantity + delta);
+    }
+    syncQuantityBadge() {
+        this.qtyBadge.setVisible(this.quantity > 1);
+        this.qtyBadge.setText(this.quantity > 99 ? '99+' : String(this.quantity));
+    }
     get cardWidth() {
-        return this.metrics.w;
+        const { w, h } = this.metrics;
+        return this.orientation === 1 ? h : w;
     }
     get cardHeight() {
-        return this.metrics.h;
+        const { w, h } = this.metrics;
+        return this.orientation === 1 ? w : h;
+    }
+    /** Toggle 90° rotation (slim ↔ wide footprint). */
+    toggleRotation() {
+        this.orientation = this.orientation === 0 ? 1 : 0;
+        this.scene.tweens.killTweensOf(this.face);
+        this.scene.tweens.add({
+            targets: this.face,
+            angle: this.orientation * 90,
+            duration: 120,
+            ease: 'Quad.easeOut',
+        });
+        this.syncHitSize();
+        this.scene.events.emit('card-rotated', this);
+    }
+    syncHitSize() {
+        this.setSize(this.cardWidth, this.cardHeight);
     }
 }
 export function boardDepthFromY(y) {

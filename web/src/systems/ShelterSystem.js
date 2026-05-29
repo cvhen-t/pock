@@ -5,20 +5,20 @@ import Phaser from 'phaser';
 export class ShelterSystem {
     stacks;
     chargesLeft = 0;
-    maxChargesPerMoon = 2;
+    maxChargesPerDay = 2;
     reduction = 0;
     constructor(scene, stacks) {
         this.stacks = stacks;
         scene.events.on('stack-changed', () => this.refresh());
-        scene.events.on('moon-end', () => {
-            if (this.maxChargesPerMoon > 0)
-                this.chargesLeft = this.maxChargesPerMoon;
+        scene.events.on('day-end', () => {
+            if (this.maxChargesPerDay > 0)
+                this.chargesLeft = this.maxChargesPerDay;
         });
         scene.events.once(Phaser.Scenes.Events.SHUTDOWN, () => { });
         this.refresh();
     }
     resetCharges() {
-        this.chargesLeft = this.maxChargesPerMoon;
+        this.chargesLeft = this.maxChargesPerDay;
     }
     /** Multiplier applied to base damage (e.g. 0.5 = half). */
     getBaseDamageMultiplier() {
@@ -46,7 +46,8 @@ export class ShelterSystem {
         if (tags.includes('shelter')) {
             const effect = stack.base.definition.effects?.find((e) => e.type === 'shelter');
             this.reduction = Phaser.Math.Clamp(effect?.damageReduction ?? 0.5, 0, 0.9);
-            this.maxChargesPerMoon = effect?.chargesPerMoon ?? 2;
+            this.maxChargesPerDay =
+                effect?.chargesPerDay ?? effect?.chargesPerMoon ?? 2;
             return true;
         }
         return false;
