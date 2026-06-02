@@ -3,6 +3,7 @@ import { getCardQuantity, isQuantityMergePair } from './cardQuantity';
 import { previewFacilityRecipe } from './recipeMatch';
 import type GameCard from '../objects/GameCard';
 import type { CardDefinition } from '../types/gameData';
+import { isWarehouseStorable } from './storageInventory';
 import type { CardStackSystem } from '../systems/CardStackSystem';
 import { getCraftStationId } from '../systems/CraftStationSystem';
 import { getRanchPenEffect } from '../systems/RanchSystem';
@@ -152,7 +153,8 @@ export function describeStackDrop(
   }
 
   if (baseTags.includes('warehouse')) {
-    return { primary: '暂存材料' };
+    if (!isWarehouseStorable(dragTags)) return null;
+    return { primary: '暂存物品' };
   }
 
   if (dragTags.includes('survivor') && baseTags.includes('shelter')) {

@@ -6,6 +6,7 @@ const CARD_CACHE_KEYS = [
   'cards_defense',
   'cards_wilderness',
   'cards_facility',
+  'cards_automation',
 ] as const;
 
 export function collectCardsFromCache(
@@ -25,4 +26,5 @@ export const CARD_JSON_PATHS: Record<(typeof CARD_CACHE_KEYS)[number], string> =
   cards_defense: 'data/cards/deck_defense.json',
   cards_wilderness: 'data/cards/deck_wilderness.json',
   cards_facility: 'data/cards/deck_facility.json',
+  cards_automation: 'data/cards/deck_automation.json',
 };

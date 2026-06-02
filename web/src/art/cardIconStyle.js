@@ -1,12 +1,26 @@
 export const ICON_SCALE = 1.08;
+/** 卡牌图标 / 卡面内衬统一底色 #c9c4bc */
+export const CARD_ICON_BG = 0xcbc0b5;
+export const CARD_ICON_BG_HEX = '#3f3e3d';
+/** 卡面内衬统一不透明度 */
+export const CARD_INNER_ALPHA = 0.1;
+export function resolveCardInnerAlpha(_cardId) {
+    return CARD_INNER_ALPHA;
+}
 export function iconK(size) {
     return (size / 56) * ICON_SCALE;
 }
-/** 地面压痕 — 统一让物体“落地” */
-export function drawGround(ctx, cx, cy, k, rw = 20, rh = 7) {
-    ctx.fillStyle(0x3a3228, 0.4);
-    ctx.fillEllipse(cx, cy + 15 * k, rw * k, rh * k);
+/** 统一灰白圆角底 — 所有卡牌图标先画此层 */
+export function drawIconBackground(ctx, size) {
+    const pad = 5;
+    const r = Math.floor(size * 0.14);
+    ctx.fillStyle(CARD_ICON_BG, 1);
+    ctx.fillRoundedRect(pad, pad, size - pad * 2, size - pad * 2, r);
+    ctx.strokeStyle(CARD_ICON_BG, 1.2, 1);
+    ctx.strokeRoundedRect(pad + 1, pad + 1, size - pad * 2 - 2, size - pad * 2 - 2, Math.max(2, r - 1));
 }
+/** @deprecated 已改用灰白底，保留空实现避免旧调用 */
+export function drawGround(_ctx, _cx, _cy, _k, _rw = 20, _rh = 7) { }
 export function drawSandbags(ctx, cx, cy, k, spread = 20) {
     ctx.fillStyle(0x5c5348, 1);
     ctx.fillRoundedRect(cx - spread * k, cy + 4 * k, 8 * k, 10 * k, 2 * k);

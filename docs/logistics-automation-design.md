@@ -46,7 +46,7 @@
 
 ### 2.2 连边规则与视觉
 
-- 设备 **中心距 ≤ `linkRadius`（120px）** 时自动连边（逻辑见 `buildProximityEdges`）。
+- 设备 **中心距 ≤ `linkRadius`（220px）** 时自动连边（逻辑见 `buildProximityEdges`）。
 - **连线渲染**（`ConveyorLinkRenderer` + `link_visual.json`）：
   - **L 型折线**（水平/垂直优先，减少交叉），**方向箭头**标出物流流向。
   - **按角色配色**（配置键 `fromRole→toRole`）：
@@ -74,8 +74,8 @@
 
 | 设备 | 拾取范围 | 连边范围 | 说明 |
 |------|----------|----------|------|
-| 收集探头 | 淡绿填充 182px | 单圈蓝线 120px | 同时显示时 **只画一条蓝圈 + 淡绿底**，不再叠多层装饰圈 |
-| 传送 / 仓储 / 分拣手 | 无 | 单圈蓝线 120px | 范围内合法目标显示 **候选高亮圈** |
+| 收集探头 | 淡绿填充 182px | 单圈蓝线 220px | 同时显示时 **只画一条蓝圈 + 淡绿底**，不再叠多层装饰圈 |
+| 传送 / 仓储 / 分拣手 | 无 | 单圈蓝线 220px | 范围内合法目标显示 **候选高亮圈** |
 | 工房 / 炮塔等 | 不显示物流圈 | 不显示物流圈 | — |
 
 实现：`CardDragSystem.updateRangePreviews` + `CollectorRangePreview` + `ConveyorLinkRenderer.setDragPreview`。
@@ -223,7 +223,7 @@ CardDragSystem 拖拽 logistics 卡
 
 | 字段 | 默认 | 说明 |
 |------|------|------|
-| `linkRadius` | 120 | 连边距离（px） |
+| `linkRadius` | 220 | 连边距离（px） |
 | `collectorPickupRadius` | 182 | 收集默认拾取半径（卡面可覆盖） |
 | `tickSeconds` | 1.2 | 物流 tick 间隔 |
 | `linkTransitSeconds` | 1.5 | packet 每跳停留时间 |

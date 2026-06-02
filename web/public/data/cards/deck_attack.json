@@ -111,7 +111,7 @@
         {
           "type": "defense_turret",
           "damage": 2,
-          "range": 90,
+          "range": 190,
           "hp": 8,
           "attackCooldown": 1.2,
           "attackPresentation": {
@@ -139,7 +139,7 @@
         {
           "type": "defense_turret",
           "damage": 3,
-          "range": 120,
+          "range": 220,
           "hp": 5,
           "attackCooldown": 1.5,
           "attackPresentation": {
@@ -165,7 +165,7 @@
         {
           "type": "defense_turret",
           "damage": 1,
-          "range": 70,
+          "range": 170,
           "hp": 6,
           "attackCooldown": 1.4,
           "slow": 0.3,
@@ -199,7 +199,7 @@
           "type": "defense_turret",
           "requiresActivation": true,
           "damage": 5,
-          "range": 100,
+          "range": 200,
           "hp": 4,
           "attackCooldown": 2,
           "onHitApply": [

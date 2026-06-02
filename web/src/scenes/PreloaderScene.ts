@@ -37,6 +37,9 @@ export default class PreloaderScene extends Phaser.Scene {
     this.load.json('packs', 'data/packs/packs.json');
     this.load.json('shop', 'data/shop/shop.json');
     this.load.json('player_guide', 'data/guide/player_guide.json');
+    this.load.json('logistics_link_rules', 'data/logistics/link_rules.json');
+    this.load.json('logistics_automation', 'data/logistics/automation.json');
+    this.load.json('logistics_link_visual', 'data/logistics/link_visual.json');
 
     markBackgroundProcedural(this, false);
     this.load.image(TEX.BG_WASTELAND, BG_SCENE_URL);

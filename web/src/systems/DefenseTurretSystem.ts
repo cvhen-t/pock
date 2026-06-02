@@ -5,6 +5,7 @@ import type { EnemyStatusSystem, OnHitEffect } from './EnemyStatusSystem';
 import type { PlantActivationSystem } from './PlantActivationSystem';
 import type { AttackPresentation, HitExtras, PlantAttackVfxSystem } from './PlantAttackVfxSystem';
 import type { InvasionSystem } from './InvasionSystem';
+import { getDefenseTurretRange } from '../core/defenseTurretRange';
 
 interface TurretState {
   card: GameCard;
@@ -86,7 +87,7 @@ export class DefenseTurretSystem {
       hp,
       maxHp: hp,
       damage: effect?.damage ?? 1,
-      range: effect?.range ?? 90,
+      range: getDefenseTurretRange(card.definition)!,
       cooldownMs: (effect?.attackCooldown ?? 1.2) * 1000,
       lastShot: 0,
       enabled,

@@ -21,6 +21,7 @@ const GRID_ROWS = 3;
 const CELL_GAP_X = 14;
 const CELL_GAP_Y = 16;
 const PLAYFIELD_PAD = 12;
+const LOGISTICS_HOP = 82;
 /**
  * Starter card centers that respect card size and playfield bounds.
  */
@@ -41,4 +42,18 @@ export function computeStarterBoardLayout(playfield) {
         x: originX + col * cellW,
         y: originY + row * cellH,
     }));
+}
+/** Demo: 资源 → 传送 → 分拣手 → 商店 / 工房（并行分支） */
+export function computeStarterLogisticsLayout(playfield) {
+    const y = playfield.bottom - 88;
+    const x0 = playfield.centerX - LOGISTICS_HOP * 2;
+    return [
+        { id: 'auto_collector', x: x0, y },
+        { id: 'auto_receiver', x: x0 + LOGISTICS_HOP, y },
+        { id: 'auto_sort_hand', x: x0 + LOGISTICS_HOP * 2, y: y - 55, sortMode: 'sell', sortFilter: 'scrap' },
+        { id: 'trader_post', x: x0 + LOGISTICS_HOP * 3, y: y - 55 },
+        { id: 'auto_sort_hand', x: x0 + LOGISTICS_HOP * 2, y: y + 55, sortMode: 'feed', sortFilter: 'scrap' },
+        { id: 'facility_workshop', x: x0 + LOGISTICS_HOP * 3, y: y + 55 },
+        { id: 'scrap', x: x0 - 36, y: y + 44, quantity: 2 },
+    ];
 }

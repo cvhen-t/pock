@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
-import { CARD_ICON_BG, resolveCardInnerAlpha } from '../art/cardIconStyle';
 import { resolveCardIconKey } from '../art/resolveCardIconKey';
+import { CARD_ICON_BG, resolveCardInnerAlpha } from '../art/cardIconStyle';
 import { TEX } from '../art/textureKeys';
 import { layoutCardContent, resolveBoardCardMetrics, } from '../config/cardLayout';
 import { resolveWorldSprite } from '../art/WorldSpriteRegistry';

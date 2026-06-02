@@ -6,6 +6,12 @@ import {
   STACK_SNAP,
 } from '../config/cardLayout';
 import { isQuantityMergePair, isQuantityStackable } from '../core/cardQuantity';
+import {
+  isStorageMember,
+  isWarehouseStorable,
+  markWarehouseMember,
+  storageHasRoom,
+} from '../core/storageInventory';
 import GameCard, { boardDepthFromY } from '../objects/GameCard';
 
 export { STACK_SNAP } from '../config/cardLayout';
@@ -195,9 +201,26 @@ export class CardStackSystem {
       return false;
     }
 
+    if (targetStack.base.definition.tags?.includes('warehouse')) {
+      const existing = targetStack.members.find((m) => m.definition.id === dragged.definition.id);
+      if (existing && isQuantityStackable(existing.definition)) {
+        this.removeCardFromAllStacks(dragged);
+        existing.addQuantity(dragged.quantity);
+        dragged.stackId = null;
+        this.scene.events.emit('card-removed', dragged);
+        dragged.destroy();
+        this.layoutStack(targetStack);
+        this.scene.events.emit('stack-changed', targetStack);
+        return true;
+      }
+    }
+
     this.removeCardFromAllStacks(dragged);
     targetStack.members.push(dragged);
     dragged.stackId = targetStack.id;
+    if (targetStack.base.definition.tags?.includes('warehouse')) {
+      markWarehouseMember(dragged);
+    }
     this.layoutStack(targetStack);
     this.scene.events.emit('stack-changed', targetStack);
     return true;
@@ -261,7 +284,10 @@ export class CardStackSystem {
       return false;
     }
 
-  if (baseTags.includes('warehouse') && isStorableMaterial(dragTags)) return true;
+  if (baseTags.includes('warehouse')) {
+    if (!isWarehouseStorable(dragTags)) return false;
+    return storageHasRoom(target, dragged.quantity);
+  }
 
   if (baseTags.includes('shop')) return false;
 
@@ -324,6 +350,9 @@ export class CardStackSystem {
       member.x = stack.base.x;
       member.y = stack.base.y + offsetY;
       member.setDepth(stack.base.depth + i + 1);
+      if (isStorageMember(member)) {
+        member.visible = false;
+      }
       offsetY -= snap;
     }
   }
@@ -368,10 +397,6 @@ const CRAFT_INPUT_TAGS = [
 function isCraftStackInput(tags: string[]): boolean {
   if (tags.includes('survivor')) return false;
   return CRAFT_INPUT_TAGS.some((t) => tags.includes(t));
-}
-
-function isStorableMaterial(tags: string[]): boolean {
-  return isCraftStackInput(tags);
 }
 
 function animalAcceptedByRanch(

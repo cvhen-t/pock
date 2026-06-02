@@ -1,0 +1,41 @@
+{
+  "deck": "automation",
+  "cards": [
+    {
+      "id": "auto_collector",
+      "name": "收集探头",
+      "deck": "automation",
+      "shape": "compact",
+      "tags": ["building", "logistics_collect", "automation"],
+      "color": "#5a7a58",
+      "effects": [{ "type": "auto_collector", "pickupRadius": 182 }]
+    },
+    {
+      "id": "auto_receiver",
+      "name": "传送节点",
+      "deck": "automation",
+      "shape": "compact",
+      "tags": ["building", "auto_relay", "automation"],
+      "color": "#5a6a8a",
+      "effects": [{ "type": "auto_relay" }]
+    },
+    {
+      "id": "auto_sort_hand",
+      "name": "分拣手",
+      "deck": "automation",
+      "shape": "compact",
+      "tags": ["building", "logistics_sorter", "automation"],
+      "color": "#8a7a50",
+      "effects": [{ "type": "sort_hand", "blockUnmatched": true }]
+    },
+    {
+      "id": "auto_chest",
+      "name": "投放仓储",
+      "deck": "automation",
+      "shape": "wide",
+      "tags": ["building", "logistics_depot", "warehouse", "automation"],
+      "color": "#6a6050",
+      "effects": [{ "type": "auto_storage", "maxStored": 16 }]
+    }
+  ]
+}

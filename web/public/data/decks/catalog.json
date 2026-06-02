@@ -34,6 +34,13 @@
       "description": "工房、厨房、设计院等生产建筑",
       "cardFile": "deck_facility.json",
       "color": "#7a6a50"
+    },
+    {
+      "id": "automation",
+      "name": "物流",
+      "description": "收集、传送、分拣与自动化仓储",
+      "cardFile": "deck_automation.json",
+      "color": "#5a6a7a"
     }
   ]
 }

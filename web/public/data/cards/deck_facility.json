@@ -6,9 +6,12 @@
       "name": "锈蚀工房",
       "deck": "facility",
       "shape": "tile",
-      "tags": ["building", "craft_station", "facility"],
+      "tags": ["building", "craft_station", "facility", "logistics_facility"],
       "color": "#5a4a38",
-      "effects": [{ "type": "craft_station", "stationId": "workshop" }]
+      "effects": [
+        { "type": "craft_station", "stationId": "workshop" },
+        { "type": "auto_feed", "feedPerTick": 1 }
+      ]
     },
     {
       "id": "facility_smelter",

@@ -1,11 +1,13 @@
-import { drawGround, drawSandbags, drawWastelandShelter, drawWoodenWalls, iconK } from './cardIconStyle';
-/** No-op: icons use transparent background (see cardIconOutline for white edge). */
-export function drawIconFrame(_ctx, _size) { }
+import { drawIconBackground, drawSandbags, drawWastelandShelter, drawWoodenWalls, iconK } from './cardIconStyle';
+/** 灰白圆角底，见 cardIconStyle.drawIconBackground */
+export function drawIconFrame(ctx, size) {
+    drawIconBackground(ctx, size);
+}
 export function drawIconKind(ctx, kind, size) {
     const cx = size / 2;
     const cy = size / 2;
     const k = iconK(size);
-    drawGround(ctx, cx, cy, k);
+    drawIconBackground(ctx, size);
     switch (kind) {
         case 'survivor':
             drawSurvivor(ctx, cx, cy, k);

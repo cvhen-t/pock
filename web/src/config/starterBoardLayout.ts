@@ -34,7 +34,13 @@ export interface StarterBoardPosition {
   id: string;
   x: number;
   y: number;
+  quantity?: number;
+  /** 演示用：分拣手预设模式 */
+  sortMode?: 'sell' | 'buy' | 'store' | 'feed';
+  sortFilter?: string;
 }
+
+const LOGISTICS_HOP = 82;
 
 /**
  * Starter card centers that respect card size and playfield bounds.
@@ -59,4 +65,21 @@ export function computeStarterBoardLayout(
     x: originX + col * cellW,
     y: originY + row * cellH,
   }));
+}
+
+/** Demo: 资源 → 传送 → 分拣手 → 商店 / 工房（并行分支） */
+export function computeStarterLogisticsLayout(
+  playfield: Phaser.Geom.Rectangle,
+): StarterBoardPosition[] {
+  const y = playfield.bottom - 88;
+  const x0 = playfield.centerX - LOGISTICS_HOP * 2;
+  return [
+    { id: 'auto_collector', x: x0, y },
+    { id: 'auto_receiver', x: x0 + LOGISTICS_HOP, y },
+    { id: 'auto_sort_hand', x: x0 + LOGISTICS_HOP * 2, y: y - 55, sortMode: 'sell', sortFilter: 'scrap' },
+    { id: 'trader_post', x: x0 + LOGISTICS_HOP * 3, y: y - 55 },
+    { id: 'auto_sort_hand', x: x0 + LOGISTICS_HOP * 2, y: y + 55, sortMode: 'feed', sortFilter: 'scrap' },
+    { id: 'facility_workshop', x: x0 + LOGISTICS_HOP * 3, y: y + 55 },
+    { id: 'scrap', x: x0 - 36, y: y + 44, quantity: 2 },
+  ];
 }

@@ -1,0 +1,33 @@
+{
+  "edgeStyles": {
+    "logistics_collect→auto_relay": { "color": "#5a9a68", "width": 2 },
+    "auto_relay→logistics_sorter": { "color": "#6a8ab8", "width": 2 },
+    "logistics_sorter→shop": { "color": "#c87858", "width": 2 },
+    "logistics_sorter→warehouse": { "color": "#6a8ab8", "width": 2 },
+    "logistics_sorter→logistics_facility": { "color": "#9a7ab8", "width": 2 },
+    "logistics_sorter→logistics_depot": { "color": "#b89458", "width": 2 },
+    "logistics_depot→logistics_facility": { "color": "#9a7ab8", "width": 2 },
+    "logistics_facility→auto_relay": { "color": "#a87ab8", "width": 2 }
+  },
+  "activeEdgeColor": "#8a9a7a",
+  "inactiveEdgeColor": "#5a5850",
+  "previewEdgeColor": "#5a8ac8",
+  "inactiveAlpha": 0.35,
+  "previewAlpha": 0.55,
+  "endpointColor": "#c8a050",
+  "endpointPulseMs": 1200,
+  "blockedColor": "#b04040",
+  "packetDotSize": 5,
+  "arrowSize": 6,
+  "dashLength": 8,
+  "dashGap": 6,
+  "roleLabels": {
+    "logistics_collect": "收集探头",
+    "auto_relay": "传送节点",
+    "logistics_sorter": "分拣手",
+    "logistics_depot": "投放仓储",
+    "shop": "商店",
+    "warehouse": "储物棚",
+    "logistics_facility": "工房"
+  }
+}

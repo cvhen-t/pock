@@ -1,0 +1,8 @@
+{
+  "linkRadius": 220,
+  "collectorPickupRadius": 182,
+  "tickSeconds": 1.2,
+  "linkTransitSeconds": 1.5,
+  "maxPacketsPerChain": 6,
+  "maxPullPerTick": 1
+}

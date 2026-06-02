@@ -3,13 +3,15 @@ import { CARD_H, CARD_SHAPES, CARD_W } from '../config/cardLayout';
 import { HAND_DRAG_THRESHOLD, HAND_SCROLL_THRESHOLD, HAND_SLOT_GAP, HAND_SLOT_SCALE, } from '../config/layoutConfig';
 import { HandInventory } from '../core/HandInventory';
 import { dataStore } from '../core/DataStore';
+import { getDefenseTurretRange } from '../core/defenseTurretRange';
 import { describeStackDrop } from '../core/stackOutcomePreview';
 import GameCard, { boardDepthFromY } from '../objects/GameCard';
-import { resolveCardIconKey } from '../art/resolveCardIconKey';
 import { CARD_ICON_BG, CARD_INNER_ALPHA } from '../art/cardIconStyle';
+import { resolveCardIconKey } from '../art/resolveCardIconKey';
 import { TEX } from '../art/textureKeys';
 import { clampCardCenter } from './playfieldClamp';
 import { fadeOutGhost, tweenCardEnter, tweenDragPickup } from './dragFx';
+import { PlantAttackRangePreview } from './PlantAttackRangePreview';
 const HUD_DEPTH = 2100;
 export default class HandBar extends Phaser.GameObjects.Container {
     stacks;
@@ -35,6 +37,7 @@ export default class HandBar extends Phaser.GameObjects.Container {
     dragCardId = null;
     gameOver = false;
     dropHint;
+    attackRangePreview;
     onTradeSellDrop;
     onActionBarDrop;
     onTradeSellHint;
@@ -48,6 +51,7 @@ export default class HandBar extends Phaser.GameObjects.Container {
         this.onTradeSellHint = options.onTradeSellHint;
         this.onActionBarDrop = options.onActionBarDrop;
         this.onDragHover = options.onDragHover;
+        this.attackRangePreview = new PlantAttackRangePreview(scene);
         scene.add.existing(this);
         this.setScrollFactor(0);
         this.setDepth(HUD_DEPTH);
@@ -331,7 +335,25 @@ export default class HandBar extends Phaser.GameObjects.Container {
             this.dragGhost.setDepth(1600);
             this.onDragHover?.(pointer.x, pointer.y);
             this.updateDropHint(x, y);
+            this.updateAttackRangePreview();
         }
+    }
+    updateAttackRangePreview() {
+        if (!this.dragGhost || !this.dragCardId) {
+            this.attackRangePreview.hide();
+            return;
+        }
+        const def = dataStore.getCard(this.dragCardId);
+        if (!def) {
+            this.attackRangePreview.hide();
+            return;
+        }
+        const range = getDefenseTurretRange(def);
+        if (range == null) {
+            this.attackRangePreview.hide();
+            return;
+        }
+        this.attackRangePreview.show(this.dragGhost.x, this.dragGhost.y, range);
     }
     updateDropHint(wx, wy) {
         if (!this.dropHint || !this.dragGhost || !this.dragCardId)
@@ -376,8 +398,10 @@ export default class HandBar extends Phaser.GameObjects.Container {
         this.dragGhost.setDepth(1600);
         this.scene.children.bringToTop(this.dragGhost);
         tweenDragPickup(this.scene, this.dragGhost, 1.06);
+        this.updateAttackRangePreview();
     }
     finishDrag() {
+        this.attackRangePreview.hide();
         this.dropHint?.hide();
         this.onDragHover?.(-1, -1);
         const cardId = this.dragCardId;

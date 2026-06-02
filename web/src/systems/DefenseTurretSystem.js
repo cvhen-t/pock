@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import GameCard from '../objects/GameCard';
+import { getDefenseTurretRange } from '../core/defenseTurretRange';
 export class DefenseTurretSystem {
     scene;
     invasion;
@@ -48,7 +49,7 @@ export class DefenseTurretSystem {
             hp,
             maxHp: hp,
             damage: effect?.damage ?? 1,
-            range: effect?.range ?? 90,
+            range: getDefenseTurretRange(card.definition),
             cooldownMs: (effect?.attackCooldown ?? 1.2) * 1000,
             lastShot: 0,
             enabled,

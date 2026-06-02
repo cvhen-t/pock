@@ -1,4 +1,3 @@
-import Phaser from 'phaser';
 import { CARD_SHAPES, resolveCardMetrics } from '../config/cardLayout';
 import { dataStore } from '../core/DataStore';
 import { resolveCardIconKey } from '../art/resolveCardIconKey';

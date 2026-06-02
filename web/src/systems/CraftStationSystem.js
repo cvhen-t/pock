@@ -93,14 +93,22 @@ export class CraftStationSystem {
         this.stacks.layoutStack(stack);
         const outputId = resolveOutputCardId(recipe, match.seedCardId);
         const count = recipe.output.count ?? 1;
-        const px = stack.base.x + Phaser.Math.Between(-24, 24);
-        const py = stack.base.y + 56;
-        this.spawner.spawn(outputId, px, py, count);
+        const outputs = [{ cardId: outputId, qty: count }];
         for (const extra of recipe.extraOutputs ?? []) {
-            const extraCount = extra.count ?? 1;
-            const ex = stack.base.x + Phaser.Math.Between(-24, 24);
-            const ey = stack.base.y + 72;
-            this.spawner.spawn(extra.cardId, ex, ey, extraCount);
+            outputs.push({ cardId: extra.cardId, qty: extra.count ?? 1 });
+        }
+        const payload = { facility: stack.base, outputs, absorbed: false };
+        this.scene.events.emit('craft-output', payload);
+        if (!payload.absorbed) {
+            const px = stack.base.x + Phaser.Math.Between(-24, 24);
+            const py = stack.base.y + 56;
+            this.spawner.spawn(outputId, px, py, count);
+            for (const extra of recipe.extraOutputs ?? []) {
+                const extraCount = extra.count ?? 1;
+                const ex = stack.base.x + Phaser.Math.Between(-24, 24);
+                const ey = stack.base.y + 72;
+                this.spawner.spawn(extra.cardId, ex, ey, extraCount);
+            }
         }
         const outName = dataStore.getCard(outputId)?.name ?? outputId;
         this.scene.events.emit('drag-toast', `合成完成：${outName}`);

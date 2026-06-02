@@ -61,7 +61,18 @@ import {
 
 } from '../ui/LayoutManager';
 
-import { computeStarterBoardLayout } from '../config/starterBoardLayout';
+import {
+  computeStarterBoardLayout,
+  computeStarterLogisticsLayout,
+} from '../config/starterBoardLayout';
+import { parseAutomationConfig, REGISTRY_AUTOMATION_CONFIG } from '../core/automationConfig';
+import { parseLinkVisual, REGISTRY_LINK_VISUAL } from '../core/linkVisualConfig';
+import { setSortFilterCardId, setSortMode } from '../core/sortHandRules';
+import { AutomationSystem } from '../systems/AutomationSystem';
+import { SortHandBuildingSystem } from '../systems/SortHandBuildingSystem';
+import { SortHandHudSystem } from '../systems/SortHandHudSystem';
+import { ConveyorLinkRenderer } from '../ui/ConveyorLinkRenderer';
+import { SortHandPanel } from '../ui/SortHandPanel';
 import { clampCardCenter, clampStackToPlayfield } from '../ui/playfieldClamp';
 import { tweenCardEnter } from '../ui/dragFx';
 
@@ -74,8 +85,12 @@ import { DropConfig } from '../core/DropConfig';
 import { ShopCatalog } from '../core/ShopCatalog';
 import { DropSystem } from '../systems/DropSystem';
 import { ShopBuildingSystem } from '../systems/ShopBuildingSystem';
+import { StorageBuildingSystem } from '../systems/StorageBuildingSystem';
 import TradePanel from '../ui/TradePanel';
+import StoragePanel from '../ui/StoragePanel';
 import GuidePanel, { type PlayerGuideData } from '../ui/GuidePanel';
+import { deliverToPlayerWarehouse } from '../core/automationDelivery';
+import { pullFromWarehouse } from '../core/storageInventory';
 
 
 
@@ -137,9 +152,13 @@ export default class GameScene extends Phaser.Scene {
 
   private tradePanel?: TradePanel;
 
+  private storagePanel?: StoragePanel;
+
   private guidePanel?: GuidePanel;
 
   private shopBuilding!: ShopBuildingSystem;
+
+  private sortHandPanel?: SortHandPanel;
 
   private resources: ResourceSnapshot = { food: 4, water: 3, caps: 2 };
 
@@ -172,6 +191,14 @@ export default class GameScene extends Phaser.Scene {
     this.dropConfig.load(this.cache.json.get('invasion_drops'));
     this.shopCatalog.load(this.cache.json.get('shop'));
     this.shopCatalog.buildTestFreeListings(dataStore.getAllCards());
+    this.registry.set(
+      REGISTRY_AUTOMATION_CONFIG,
+      parseAutomationConfig(this.cache.json.get('logistics_automation')),
+    );
+    this.registry.set(
+      REGISTRY_LINK_VISUAL,
+      parseLinkVisual(this.cache.json.get('logistics_link_visual')),
+    );
     const starterRecipes = this.cache.json.get('recipes_starter') as {
       recipes: import('../types/gameData').RecipeDefinition[];
     };
@@ -437,7 +464,22 @@ export default class GameScene extends Phaser.Scene {
     new DropSystem(this, this.spawner, this.dropConfig, this.invasionConfig);
 
     this.shopBuilding = new ShopBuildingSystem(this, this.stackSystem);
+    new StorageBuildingSystem(this, this.stackSystem);
     this.wireShopTradeHandlers();
+
+    new SortHandBuildingSystem(this);
+    new SortHandHudSystem(this);
+    new AutomationSystem(
+      this,
+      this.stackSystem,
+      this.spawner,
+      this.dragSystem,
+      this.shopCatalog,
+      this.resources,
+    );
+    new ConveyorLinkRenderer(this);
+    this.events.on('automation-sold', () => this.syncBaseHud());
+    this.events.on('automation-bought', () => this.syncBaseHud());
 
     const plantActivation = new PlantActivationSystem(this, this.stackSystem);
     const plantAttackVfx = new PlantAttackVfxSystem(this, this.invasion, enemyStatus);
@@ -483,13 +525,34 @@ export default class GameScene extends Phaser.Scene {
     if (this.backpackBar.isDraggingFromHand() || this.actionBar.isDraggingFromBar()) {
       return false;
     }
+    if (this.sortHandPanel?.containsPanelPoint(sx, sy) === true) {
+      const active = this.sortHandPanel.getActiveCard();
+      if (active && this.isScreenPointOnCard(sx, sy, active)) {
+        return false;
+      }
+      return true;
+    }
     return (
       this.layout.topHud.contains(sx, sy) ||
       this.layout.stackLane.contains(sx, sy) ||
       this.layout.backpackBar.contains(sx, sy) ||
       this.layout.actionBar.contains(sx, sy) ||
       this.tradePanel?.containsPanelPoint(sx, sy) === true ||
+      this.storagePanel?.containsPanelPoint(sx, sy) === true ||
       this.guidePanel?.containsPanelPoint(sx, sy) === true
+    );
+  }
+
+  private isScreenPointOnCard(sx: number, sy: number, card: GameCard): boolean {
+    const out = new Phaser.Math.Vector2();
+    this.cameras.main.getWorldPoint(sx, sy, out);
+    const hw = card.cardWidth / 2;
+    const hh = card.cardHeight / 2;
+    return (
+      out.x >= card.x - hw &&
+      out.x <= card.x + hw &&
+      out.y >= card.y - hh &&
+      out.y <= card.y + hh
     );
   }
 
@@ -531,6 +594,8 @@ export default class GameScene extends Phaser.Scene {
     this.stackLane.applyLayout(this.layout);
 
     this.tradePanel?.applyLayout(width / 2, height / 2, width, height);
+    this.storagePanel?.applyLayout(width / 2, height / 2, width, height);
+    this.sortHandPanel?.applyLayout(width / 2, height / 2, width, height);
     this.guidePanel?.applyLayout(width / 2, height / 2, width, height);
 
     this.background?.layoutPlayfield(playfield);
@@ -640,8 +705,52 @@ export default class GameScene extends Phaser.Scene {
     const cy = height / 2;
     this.tradePanel.applyLayout(cx, cy, width, height);
 
+    this.storagePanel = new StoragePanel(this, this.stackSystem, {
+      isPlayfieldPoint: (sx, sy) => {
+        const pf = this.layout?.playfield;
+        return pf ? pf.contains(sx, sy) : false;
+      },
+      onWithdrawToPlayfield: (warehouse, cardId, count, sx, sy, label) => {
+        if (!dataStore.getCard(cardId)) return false;
+        const pf = this.layout?.playfield;
+        if (!pf || !pf.contains(sx, sy)) return false;
+
+        const taken = pullFromWarehouse(this.stackSystem, warehouse, cardId, count);
+        if (taken <= 0) return false;
+
+        const card = this.spawner.spawn(cardId, sx, sy, taken);
+        if (!card) {
+          deliverToPlayerWarehouse(
+            this.stackSystem,
+            this.spawner,
+            this.dragSystem,
+            warehouse,
+            cardId,
+            taken,
+          );
+          return false;
+        }
+
+        clampCardCenter(pf, card);
+        card.setDepth(boardDepthFromY(card.y));
+        tweenCardEnter(this, card, 1);
+        this.dragSystem.registerCard(card);
+        this.showToast(`取出：${label}`, '#8a9a7a');
+        return true;
+      },
+    });
+    this.storagePanel.applyLayout(cx, cy, width, height);
+
     this.events.on('shop-trade-open', ({ card }: { card: GameCard }) => {
       this.tradePanel?.openTrade(card);
+    });
+
+    this.events.on('storage-panel-open', ({ card }: { card: GameCard }) => {
+      this.storagePanel?.openStorage(card);
+    });
+
+    this.events.on('stack-changed', (stack: { base: GameCard }) => {
+      this.storagePanel?.refreshIfOpen(stack.base);
     });
 
     const guideData = this.cache.json.get('player_guide') as PlayerGuideData | undefined;
@@ -649,6 +758,14 @@ export default class GameScene extends Phaser.Scene {
       this.guidePanel = new GuidePanel(this, guideData);
       this.guidePanel.applyLayout(cx, cy, width, height);
     }
+
+    this.sortHandPanel = new SortHandPanel(this, this.stackSystem, this.shopCatalog, () => {});
+    this.sortHandPanel.applyLayout(cx, cy, width, height);
+    this.events.on('sort-hand-panel-open', ({ card }: { card: GameCard }) => {
+      this.tradePanel?.close();
+      this.storagePanel?.close();
+      this.sortHandPanel?.open(card);
+    });
   }
 
   private updateActionBarDropHover(sx: number, sy: number): void {
@@ -764,33 +881,38 @@ export default class GameScene extends Phaser.Scene {
 
   private spawnStarterBoard(): void {
     const layout = computeStarterBoardLayout(this.layout.playfield);
-
     for (const item of layout) {
+      this.placeStarterCard(item);
+    }
 
-      const def = dataStore.getCard(item.id);
-
-      if (!def) continue;
-
-      const card = new GameCard(this, item.x, item.y, def);
-
-      card.setDepth(boardDepthFromY(item.y));
-
-      this.stackSystem.registerBase(card);
-
-      this.dragSystem.registerCard(card);
-
-      effectRunner.run(def.effects, { scene: this, sourceCardId: def.id });
-
-      this.events.emit('card-spawned', card);
-
+    const logistics = computeStarterLogisticsLayout(this.layout.playfield);
+    for (const item of logistics) {
+      const card = this.placeStarterCard(item);
+      if (item.id === 'auto_sort_hand' && card && item.sortMode) {
+        setSortMode(card, item.sortMode);
+        if (item.sortFilter) setSortFilterCardId(card, item.sortFilter);
+      }
     }
 
     this.clampAllBoardCards();
-
     this.backpackBar.addCard('test_shop', 1);
-
     this.syncBaseHud();
+    this.showToast('物流演示：点击分拣手配置 卖/买/存/供料', '#8a9a7a');
+  }
 
+  private placeStarterCard(item: { id: string; x: number; y: number; quantity?: number }): GameCard | null {
+    const def = dataStore.getCard(item.id);
+    if (!def) return null;
+    const card = new GameCard(this, item.x, item.y, def);
+    if (item.quantity != null && item.quantity > 1) {
+      card.setQuantity(item.quantity);
+    }
+    card.setDepth(boardDepthFromY(item.y));
+    this.stackSystem.registerBase(card);
+    this.dragSystem.registerCard(card);
+    effectRunner.run(def.effects, { scene: this, sourceCardId: def.id });
+    this.events.emit('card-spawned', card);
+    return card;
   }
 
 

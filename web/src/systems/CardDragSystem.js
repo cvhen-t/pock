@@ -4,7 +4,12 @@ import { canRotateBoardCard } from '../core/cardRotate';
 import { isQuantityStackable } from '../core/cardQuantity';
 import { describeStackDrop } from '../core/stackOutcomePreview';
 import { clampCardCenter, clampDraggedCards, clampStackToPlayfield } from '../ui/playfieldClamp';
+import { getDefenseTurretRange } from '../core/defenseTurretRange';
 import { tweenDragPickup } from '../ui/dragFx';
+import { parseAutomationConfig, REGISTRY_AUTOMATION_CONFIG } from '../core/automationConfig';
+import { findLogisticsPreviewLinks, getLogisticsRangeSpec, } from '../core/logisticsRangePreview';
+import { LogisticsRangePreview } from '../ui/LogisticsRangePreview';
+import { PlantAttackRangePreview } from '../ui/PlantAttackRangePreview';
 const DRAG_THRESHOLD = 6;
 const DOUBLE_TAP_MS = 400;
 /**
@@ -30,6 +35,8 @@ export class CardDragSystem {
     sellHint;
     dropToActionBar;
     hoverScreen;
+    attackRangePreview;
+    logisticsRangePreview;
     constructor(scene, stacks, onDrop, blocksScreenPoint) {
         this.scene = scene;
         this.stacks = stacks;
@@ -45,8 +52,12 @@ export class CardDragSystem {
         scene.events.once(Phaser.Scenes.Events.SHUTDOWN, this.destroy, this);
         scene.game.events.on(Phaser.Core.Events.BLUR, this.forceRelease, this);
         scene.game.canvas.addEventListener('contextmenu', this.boundContextMenu);
+        this.attackRangePreview = new PlantAttackRangePreview(scene);
+        this.logisticsRangePreview = new LogisticsRangePreview(scene);
     }
     destroy() {
+        this.attackRangePreview.destroy();
+        this.logisticsRangePreview.destroy();
         this.forceRelease();
         this.scene.events.off(Phaser.Scenes.Events.UPDATE, this.boundSync);
         this.scene.game.events.off(Phaser.Core.Events.BLUR, this.forceRelease, this);
@@ -81,6 +92,8 @@ export class CardDragSystem {
     }
     forceRelease() {
         this.pending = null;
+        this.attackRangePreview.hide();
+        this.logisticsRangePreview.hide();
         this.dropHint?.hide();
         this.hoverScreen?.(-1, -1);
         if (this.active)
@@ -252,6 +265,7 @@ export class CardDragSystem {
             tweenDragPickup(this.scene, c, 1.06);
         }
         this.scene.events.emit('card-drag-start', { cards });
+        this.updateRangePreviews();
         if (pileMode) {
             this.scene.events.emit('drag-toast', stack.members.length > 0 ? '右键：整摞拖动' : '右键：整组拖动');
         }
@@ -283,6 +297,7 @@ export class CardDragSystem {
             drag.stack.base.y = baseStart.y + dy;
             this.clampActiveDrag(drag);
             this.updateDropHint(drag.leader);
+            this.updateRangePreviews();
             this.hoverScreen?.(pointer.x, pointer.y);
             return;
         }
@@ -296,7 +311,57 @@ export class CardDragSystem {
         }
         this.clampActiveDrag(drag);
         this.updateDropHint(drag.leader);
+        this.updateRangePreviews();
         this.hoverScreen?.(pointer.x, pointer.y);
+    }
+    updateRangePreviews() {
+        const drag = this.active;
+        if (!drag) {
+            this.attackRangePreview.hide();
+            this.logisticsRangePreview.hide();
+            return;
+        }
+        const logisticsAnchor = this.logisticsRangeAnchor(drag);
+        if (logisticsAnchor) {
+            this.attackRangePreview.hide();
+            const previewLinks = findLogisticsPreviewLinks(this.scene, logisticsAnchor.card, logisticsAnchor.spec.linkRadius);
+            this.logisticsRangePreview.show(logisticsAnchor.card.x, logisticsAnchor.card.y, logisticsAnchor.spec, previewLinks);
+            return;
+        }
+        this.logisticsRangePreview.hide();
+        const attackAnchor = this.attackRangeAnchor(drag);
+        if (!attackAnchor) {
+            this.attackRangePreview.hide();
+            return;
+        }
+        this.attackRangePreview.show(attackAnchor.card.x, attackAnchor.card.y, attackAnchor.range);
+    }
+    logisticsRangeAnchor(drag) {
+        const config = parseAutomationConfig(this.scene.registry.get(REGISTRY_AUTOMATION_CONFIG));
+        if (drag.mode === 'pile' && drag.stack) {
+            const spec = getLogisticsRangeSpec(drag.stack.base, config);
+            if (spec)
+                return { card: drag.stack.base, spec };
+        }
+        for (const card of drag.cards) {
+            const spec = getLogisticsRangeSpec(card, config);
+            if (spec)
+                return { card, spec };
+        }
+        return null;
+    }
+    attackRangeAnchor(drag) {
+        if (drag.mode === 'pile' && drag.stack) {
+            const range = getDefenseTurretRange(drag.stack.base.definition);
+            if (range != null)
+                return { card: drag.stack.base, range };
+        }
+        for (const card of drag.cards) {
+            const range = getDefenseTurretRange(card.definition);
+            if (range != null)
+                return { card, range };
+        }
+        return null;
     }
     updateDropHint(dragged) {
         if (!this.dropHint)
@@ -330,6 +395,8 @@ export class CardDragSystem {
             return;
         const draggedCards = [...drag.cards];
         this.active = null;
+        this.attackRangePreview.hide();
+        this.logisticsRangePreview.hide();
         this.dropHint?.hide();
         this.hoverScreen?.(-1, -1);
         for (const c of draggedCards) {

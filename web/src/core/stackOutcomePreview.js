@@ -1,6 +1,7 @@
 import { dataStore } from './DataStore';
 import { getCardQuantity, isQuantityMergePair } from './cardQuantity';
 import { previewFacilityRecipe } from './recipeMatch';
+import { isWarehouseStorable } from './storageInventory';
 import { getCraftStationId } from '../systems/CraftStationSystem';
 import { getRanchPenEffect } from '../systems/RanchSystem';
 /** Human-readable outcome when dropping `dragged` onto `target`. */
@@ -98,7 +99,9 @@ export function describeStackDrop(stacks, dragged, target) {
         }
     }
     if (baseTags.includes('warehouse')) {
-        return { primary: '暂存材料' };
+        if (!isWarehouseStorable(dragTags))
+            return null;
+        return { primary: '暂存物品' };
     }
     if (dragTags.includes('survivor') && baseTags.includes('shelter')) {
         const effect = getShelterEffect(base.definition);

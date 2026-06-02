@@ -1,0 +1,12 @@
+{
+  "connections": [
+    { "from": "logistics_collect", "to": "auto_relay", "maxOut": 1, "maxIn": 1, "priority": 10 },
+    { "from": "auto_relay", "to": "logistics_sorter", "maxOut": 4, "maxIn": 1, "priority": 8 },
+    { "from": "logistics_sorter", "to": "shop", "maxOut": 1, "maxIn": 1, "priority": 6 },
+    { "from": "logistics_sorter", "to": "warehouse", "maxOut": 1, "maxIn": 1, "priority": 6 },
+    { "from": "logistics_sorter", "to": "logistics_facility", "maxOut": 1, "maxIn": 1, "priority": 6 },
+    { "from": "logistics_sorter", "to": "logistics_depot", "maxOut": 1, "maxIn": 1, "priority": 5 },
+    { "from": "logistics_depot", "to": "logistics_facility", "maxOut": 2, "maxIn": 2, "priority": 4 },
+    { "from": "logistics_facility", "to": "auto_relay", "maxOut": 1, "maxIn": 1, "priority": 7 }
+  ]
+}

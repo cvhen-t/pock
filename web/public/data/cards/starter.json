@@ -78,7 +78,7 @@
         {
           "type": "defense_turret",
           "damage": 2,
-          "range": 90,
+          "range": 190,
           "hp": 8,
           "attackCooldown": 1.2,
           "attackPresentation": {
