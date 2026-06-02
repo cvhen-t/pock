@@ -13,8 +13,9 @@ const SHELF_GAP_MIN = 4;
 const SHELF_GAP_MAX = 28;
 const SHOP_THUMB_SCALE = 0.88;
 const DRAG_THRESHOLD = 8;
-const SHELF_TOP = 76;
-const SHELF_BOTTOM_PAD = 10;
+const SHELF_TOP = 70;
+const SHELF_BOTTOM_PAD = 4;
+const SHELF_SCROLL_END_PAD = 4;
 const SHELF_VIEW_INSET = 0;
 const SHELF_VIEW_H = PANEL_H - SHELF_TOP - SHELF_BOTTOM_PAD;
 const SHELF_CONTENT_PAD = 2;
@@ -123,7 +124,8 @@ export default class TradePanel extends Phaser.GameObjects.Container {
         this.buyHint.setOrigin(0.5, 0);
         const shelfViewTop = this.getShelfViewTop();
         const shelfBottom = shelfViewTop + SHELF_VIEW_H;
-        const bottomCoverH = PANEL_H / 2 - shelfBottom;
+        const panelBottom = PANEL_H / 2;
+        const bottomCoverH = Math.max(0, panelBottom - shelfBottom);
         this.buyShelf = scene.add.container(0, shelfViewTop);
         const shelfMaskGfx = scene.make.graphics({ x: 0, y: 0 });
         shelfMaskGfx.fillStyle(0xffffff);
@@ -131,8 +133,9 @@ export default class TradePanel extends Phaser.GameObjects.Container {
         this.shelfMask = shelfMaskGfx.createGeometryMask();
         this.buyShelf.setMask(this.shelfMask);
         this.shelfBottomCover = scene.add
-            .rectangle(0, shelfBottom + bottomCoverH / 2, PANEL_W - 4, bottomCoverH + 4, 0x2a2620, 1)
+            .rectangle(0, shelfBottom + bottomCoverH / 2, PANEL_W - 4, bottomCoverH, 0x2a2620, 1)
             .setInteractive({ useHandCursor: false });
+        this.shelfBottomCover.setVisible(bottomCoverH > 0);
         this.shelfBottomCover.on('pointerdown', (p) => {
             p.event.stopPropagation();
         });
@@ -255,7 +258,10 @@ export default class TradePanel extends Phaser.GameObjects.Container {
         else {
             const minContentH = SHELF_CONTENT_PAD * 2 + rows * h + (rows - 1) * SHELF_GAP_MIN;
             if (minContentH <= SHELF_VIEW_H) {
-                this.shelfRowGap = Phaser.Math.Clamp((SHELF_VIEW_H - SHELF_CONTENT_PAD * 2 - rows * h) / (rows - 1), SHELF_GAP_MIN, SHELF_GAP_MAX);
+                let gap = (SHELF_VIEW_H - SHELF_CONTENT_PAD * 2 - rows * h) / (rows - 1);
+                gap = Phaser.Math.Clamp(gap, SHELF_GAP_MIN, SHELF_GAP_MAX);
+                const total = SHELF_CONTENT_PAD * 2 + rows * h + (rows - 1) * gap;
+                this.shelfRowGap = total > SHELF_VIEW_H ? SHELF_GAP_MIN : gap;
             }
             else {
                 this.shelfRowGap = SHELF_GAP_MIN;
@@ -432,10 +438,12 @@ export default class TradePanel extends Phaser.GameObjects.Container {
         this.measureShelfThumbSlot(this.shelfListings);
         this.layoutShelfSpacing();
         const rows = Math.ceil(this.shelfListings.length / BUY_COLS);
+        const h = this.shelfMaxThumbH;
         const contentH = rows > 0
-            ? SHELF_CONTENT_PAD + (rows - 1) * this.shelfRowStride + this.shelfMaxThumbH
+            ? SHELF_CONTENT_PAD * 2 + rows * h + (rows - 1) * this.shelfRowGap
             : 0;
-        this.shelfMaxScroll = Math.max(0, contentH - SHELF_VIEW_H);
+        const overflow = contentH - SHELF_VIEW_H;
+        this.shelfMaxScroll = Math.max(0, overflow + (overflow > 0 ? SHELF_SCROLL_END_PAD : 0));
         this.applyShelfScroll();
         this.bringChromeToFront();
         this.rebuildThumbHits();
