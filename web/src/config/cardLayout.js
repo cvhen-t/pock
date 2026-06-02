@@ -1,16 +1,16 @@
 /** Default portrait card (Stacklands-like). */
 export const CARD_W = 62;
 export const CARD_H = 76;
-export const CARD_ICON_SIZE = 28;
+export const CARD_ICON_SIZE = 36;
 export const STACK_SNAP = 38;
 export const STACK_HIT_RADIUS = 48;
 export const CARD_DROP_RADIUS = 48;
 export const CARD_SHAPES = {
-    standard: { w: 62, h: 76, icon: 28, stackSnap: 38 },
-    compact: { w: 52, h: 58, icon: 24, stackSnap: 32 },
-    slim: { w: 44, h: 72, icon: 24, stackSnap: 34 },
-    wide: { w: 92, h: 48, icon: 26, stackSnap: 30 },
-    tile: { w: 76, h: 76, icon: 30, stackSnap: 36 },
+    standard: { w: 62, h: 76, icon: 36, stackSnap: 38 },
+    compact: { w: 52, h: 58, icon: 30, stackSnap: 32 },
+    slim: { w: 44, h: 72, icon: 30, stackSnap: 34 },
+    wide: { w: 92, h: 48, icon: 34, stackSnap: 30 },
+    tile: { w: 76, h: 76, icon: 38, stackSnap: 36 },
 };
 /** Positions in container space (origin at card center). */
 export function layoutCardContent(shape, m) {

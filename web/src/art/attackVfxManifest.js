@@ -1,5 +1,16 @@
-import { ACID_FRAME_COUNT, ACID_FRAME_H, ACID_FRAME_W, ATTACK_VFX, SNARE_FRAME_COUNT, SNARE_FRAME_H, SNARE_FRAME_W, SPORE_FRAME_COUNT, SPORE_FRAME_H, SPORE_FRAME_W, VINE_FRAME_COUNT, VINE_FRAME_H, VINE_FRAME_W, } from './attackVfxKeys';
+import { ACID_FRAME_COUNT, ACID_FRAME_H, ACID_FRAME_W, ATTACK_VFX, SNARE_FRAME_COUNT, SNARE_FRAME_H, SNARE_FRAME_W, SPORE_FRAME_COUNT, SPORE_FRAME_H, SPORE_FRAME_W, THORNVINE_LASH_FRAME_COUNT, THORNVINE_LASH_FRAME_H, THORNVINE_LASH_FRAME_W, VINE_FRAME_COUNT, VINE_FRAME_H, VINE_FRAME_W, } from './attackVfxKeys';
 export const ATTACK_VFX_MANIFEST = [
+    {
+        id: 'thornvine_lash',
+        atlasKey: ATTACK_VFX.THORNVINE_LASH_ATLAS,
+        animKey: ATTACK_VFX.THORNVINE_LASH_ANIM,
+        pngPath: 'assets/vfx/thornvine_lash.png',
+        promptPath: 'assets/vfx/thornvine_lash.prompt.json',
+        frameW: THORNVINE_LASH_FRAME_W,
+        frameH: THORNVINE_LASH_FRAME_H,
+        frameCount: THORNVINE_LASH_FRAME_COUNT,
+        frameRate: 14,
+    },
     {
         id: 'underground_vine',
         atlasKey: ATTACK_VFX.UNDERGROUND_VINE_ATLAS,

@@ -71,8 +71,25 @@
       "name": "锈刺藤",
       "tags": ["attack_plant"],
       "color": "#2e4a28",
+      "placedVisual": {
+        "spriteId": "plant_thornvine_world"
+      },
       "effects": [
-        { "type": "defense_turret", "damage": 2, "range": 90, "hp": 8, "attackCooldown": 1.2 }
+        {
+          "type": "defense_turret",
+          "damage": 2,
+          "range": 90,
+          "hp": 8,
+          "attackCooldown": 1.2,
+          "attackPresentation": {
+            "style": "vine_lash",
+            "spawnFrom": "plant_base",
+            "hitFrame": 5,
+            "frameRate": 16,
+            "floaterColor": "#c4a878",
+            "onHitTint": "#6a5038"
+          }
+        }
       ]
     },
     {

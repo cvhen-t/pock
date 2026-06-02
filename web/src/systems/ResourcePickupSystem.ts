@@ -1,6 +1,8 @@
 import Phaser from 'phaser';
 
+import { isHudTapPickupCard } from '../core/cardPickup';
 import GameCard from '../objects/GameCard';
+
 export interface ResourcePickupEvent {
   food: number;
   water: number;
@@ -8,7 +10,8 @@ export interface ResourcePickupEvent {
 }
 
 /**
- * Tap a solo food card (no drag) to collect into the resource bar.
+ * Tap a solo water card (no drag) to collect into the resource bar.
+ * Food / currency cards stay on the board for facility interactions.
  */
 export class ResourcePickupSystem {
   constructor(
@@ -27,27 +30,24 @@ export class ResourcePickupSystem {
     const wx = pointer.worldX;
     const wy = pointer.worldY;
 
-    const card = this.findTopFoodCard(wx, wy);
+    const card = this.findPickupCard(wx, wy);
     if (!card) return;
 
-    const delta: ResourcePickupEvent = { food: 0, water: 0, caps: 0 };
-    const tags = card.definition.tags ?? [];
+    if (!isHudTapPickupCard(card.definition)) return;
 
-    if (tags.includes('food')) delta.food = 1;
-    else if (tags.includes('water')) delta.water = 1;
-    else if (tags.includes('currency')) delta.caps = 1;
-    else return;
+    const delta: ResourcePickupEvent = { food: 0, water: 0, caps: 0 };
+    delta.water = 1;
 
     this.onCollect(delta, card);
+    this.scene.events.emit('card-removed', card);
     card.destroy();
     this.scene.events.emit('resource-collected', { cardId: card.definition.id, delta });
   }
 
-  private findTopFoodCard(wx: number, wy: number): GameCard | undefined {
+  private findPickupCard(wx: number, wy: number): GameCard | undefined {
     const cards = this.scene.children.list.filter((c): c is GameCard => {
       if (!(c instanceof GameCard)) return false;
-      const t = c.definition.tags ?? [];
-      return t.includes('food') || t.includes('water') || t.includes('currency');
+      return isHudTapPickupCard(c.definition);
     });
 
     let best: GameCard | undefined;

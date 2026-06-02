@@ -1,0 +1,10 @@
+{
+  "styleDoc": "docs/art-style-prompt.md",
+  "assetType": "world_sprite",
+  "positive": "post-apocalyptic survival card game illustration, dark muted colors, hand-painted texture, rusty worn materials, semi-realistic, consistent lighting, mutant acid bloom flower, olive petals with corrosive yellow-green drip, wasteland flora, single plant centered, slight top-down 3/4 view, transparent background, clear silhouette, no card frame, no text, feet at bottom center",
+  "negative": "neon lights, cyberpunk, sci-fi futuristic, high saturation, fluorescent colors, pure blue, pure pink, anime, chibi, cute moe, tentacles, eldritch, cosmic horror, checkerboard background, white background, text, watermark, UI, card border",
+  "aspectRatio": "3:2",
+  "recommendedSize": "768x512",
+  "tool": "comfyui",
+  "notes": "牌桌放置态；缺 PNG 时回退程序帧 AcidBloomWorldFrames"
+}

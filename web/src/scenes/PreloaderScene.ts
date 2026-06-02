@@ -2,7 +2,9 @@ import Phaser from 'phaser';
 
 import { BG_SCENE_URL, markBackgroundProcedural } from '../art/backgroundAssets';
 import { ATTACK_VFX_MANIFEST, markAttackVfxProcedural } from '../art/attackVfxManifest';
+import { markWorldSpriteProcedural, WORLD_SPRITE_MANIFEST } from '../art/worldSpriteManifest';
 import { registerAllAttackVfx } from '../art/AttackVfxRegistry';
+import { registerWorldSprites } from '../art/WorldSpriteRegistry';
 import { ensureWastelandBackground, generateGameTextures } from '../art/TextureGenerator';
 import { TEX } from '../art/textureKeys';
 import { collectCardsFromCache, CARD_JSON_PATHS } from '../core/loadCards';
@@ -49,6 +51,10 @@ export default class PreloaderScene extends Phaser.Scene {
       if (vfx) {
         markAttackVfxProcedural(this, vfx.atlasKey, true);
       }
+      const world = WORLD_SPRITE_MANIFEST.find((e) => e.atlasKey === file.key);
+      if (world) {
+        markWorldSpriteProcedural(this, world.atlasKey, true);
+      }
     });
 
     for (const entry of ATTACK_VFX_MANIFEST) {
@@ -57,6 +63,18 @@ export default class PreloaderScene extends Phaser.Scene {
         frameWidth: entry.frameW,
         frameHeight: entry.frameH,
       });
+    }
+
+    for (const entry of WORLD_SPRITE_MANIFEST) {
+      markWorldSpriteProcedural(this, entry.atlasKey, false);
+      if (entry.singleImage) {
+        this.load.image(entry.atlasKey, entry.pngPath);
+      } else {
+        this.load.spritesheet(entry.atlasKey, entry.pngPath, {
+          frameWidth: entry.frameW,
+          frameHeight: entry.frameH,
+        });
+      }
     }
   }
 
@@ -73,8 +91,9 @@ export default class PreloaderScene extends Phaser.Scene {
   private queueOptionalCardArt(): void {
     const cards = collectCardsFromCache(this.cache);
     for (const card of cards) {
-      if (!card.artKey || this.textures.exists(TEX.cardArt(card.artKey))) continue;
-      this.load.image(TEX.cardArt(card.artKey), `assets/cards/${card.artKey}.png`);
+      const artKey = card.artKey ?? card.id;
+      if (this.textures.exists(TEX.cardArt(artKey))) continue;
+      this.load.image(TEX.cardArt(artKey), `assets/cards/${artKey}.png`);
     }
   }
 
@@ -87,6 +106,7 @@ export default class PreloaderScene extends Phaser.Scene {
     }
     generateGameTextures(this, cards.map((c) => c.id));
     registerAllAttackVfx(this);
+    registerWorldSprites(this);
     this.scene.start('Game');
   }
 }

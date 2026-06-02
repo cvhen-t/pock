@@ -206,6 +206,10 @@ export class CardStackSystem {
             return true;
         if (dragged.definition.id === 'scrap' && baseTags.includes('base'))
             return true;
+        if (dragTags.includes('food') && baseTags.includes('base'))
+            return true;
+        if (dragTags.includes('water') && baseTags.includes('base'))
+            return true;
         if (dragged.definition.id === 'barbed_roll' && baseTags.includes('barrier'))
             return true;
         if (dragTags.includes('survivor') && baseTags.includes('worksite'))

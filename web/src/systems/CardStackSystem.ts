@@ -237,6 +237,8 @@ export class CardStackSystem {
 
     if (dragTags.includes('survivor') && baseTags.includes('base')) return true;
     if (dragged.definition.id === 'scrap' && baseTags.includes('base')) return true;
+    if (dragTags.includes('food') && baseTags.includes('base')) return true;
+    if (dragTags.includes('water') && baseTags.includes('base')) return true;
     if (dragged.definition.id === 'barbed_roll' && baseTags.includes('barrier')) return true;
     if (dragTags.includes('survivor') && baseTags.includes('worksite')) return true;
 
@@ -259,11 +261,11 @@ export class CardStackSystem {
       return false;
     }
 
-    if (baseTags.includes('warehouse') && isStorableMaterial(dragTags)) return true;
+  if (baseTags.includes('warehouse') && isStorableMaterial(dragTags)) return true;
 
-    if (baseTags.includes('shop')) return false;
+  if (baseTags.includes('shop')) return false;
 
-    if (dragTags.includes('weapon')) {
+  if (dragTags.includes('weapon')) {
       const pile = [target.base, ...target.members];
       return pile.some((c) => (c.definition.tags ?? []).includes('survivor'));
     }

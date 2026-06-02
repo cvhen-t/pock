@@ -29,6 +29,15 @@
       "effects": [{ "type": "shop_building" }]
     },
     {
+      "id": "test_shop",
+      "name": "测试商人",
+      "deck": "defense",
+      "shape": "tile",
+      "tags": ["shop", "building", "test"],
+      "color": "#6a5040",
+      "effects": [{ "type": "shop_building", "freeAll": true }]
+    },
+    {
       "id": "fence_iron",
       "name": "铁栅栏",
       "deck": "defense",

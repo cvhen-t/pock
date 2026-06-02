@@ -1,7 +1,9 @@
 import Phaser from 'phaser';
+import { isHudTapPickupCard } from '../core/cardPickup';
 import GameCard from '../objects/GameCard';
 /**
- * Tap a solo food card (no drag) to collect into the resource bar.
+ * Tap a solo water card (no drag) to collect into the resource bar.
+ * Food / currency cards stay on the board for facility interactions.
  */
 export class ResourcePickupSystem {
     scene;
@@ -19,29 +21,23 @@ export class ResourcePickupSystem {
             return;
         const wx = pointer.worldX;
         const wy = pointer.worldY;
-        const card = this.findTopFoodCard(wx, wy);
+        const card = this.findPickupCard(wx, wy);
         if (!card)
             return;
-        const delta = { food: 0, water: 0, caps: 0 };
-        const tags = card.definition.tags ?? [];
-        if (tags.includes('food'))
-            delta.food = 1;
-        else if (tags.includes('water'))
-            delta.water = 1;
-        else if (tags.includes('currency'))
-            delta.caps = 1;
-        else
+        if (!isHudTapPickupCard(card.definition))
             return;
+        const delta = { food: 0, water: 0, caps: 0 };
+        delta.water = 1;
         this.onCollect(delta, card);
+        this.scene.events.emit('card-removed', card);
         card.destroy();
         this.scene.events.emit('resource-collected', { cardId: card.definition.id, delta });
     }
-    findTopFoodCard(wx, wy) {
+    findPickupCard(wx, wy) {
         const cards = this.scene.children.list.filter((c) => {
             if (!(c instanceof GameCard))
                 return false;
-            const t = c.definition.tags ?? [];
-            return t.includes('food') || t.includes('water') || t.includes('currency');
+            return isHudTapPickupCard(c.definition);
         });
         let best;
         let bestDepth = -1;

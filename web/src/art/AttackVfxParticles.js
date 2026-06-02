@@ -9,6 +9,9 @@ export function registerAttackParticles(scene) {
     if (!scene.textures.exists(ATTACK_VFX.ACID_DRIP_PARTICLE)) {
         buildAcidDripParticle(scene);
     }
+    if (!scene.textures.exists(ATTACK_VFX.THORN_CHIP_PARTICLE)) {
+        buildThornChipParticle(scene);
+    }
 }
 function buildDirtParticle(scene) {
     const g = scene.make.graphics({ x: 0, y: 0 }, false);
@@ -26,6 +29,15 @@ function buildSporeParticle(scene) {
     g.fillStyle(0x5a7a48, 0.5);
     g.fillCircle(5, 3, 1.5);
     g.generateTexture(ATTACK_VFX.SPORE_PARTICLE, 8, 8);
+    g.destroy();
+}
+function buildThornChipParticle(scene) {
+    const g = scene.make.graphics({ x: 0, y: 0 }, false);
+    g.fillStyle(0x5c4038, 1);
+    g.fillTriangle(4, 2, 7, 7, 1, 7);
+    g.fillStyle(0x7a5a48, 0.85);
+    g.fillCircle(4, 4, 1.5);
+    g.generateTexture(ATTACK_VFX.THORN_CHIP_PARTICLE, 8, 8);
     g.destroy();
 }
 function buildAcidDripParticle(scene) {

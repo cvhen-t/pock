@@ -15,8 +15,16 @@ export class DefenseCraftSystem {
         scene.events.on('stack-changed', (stack) => this.onStackChanged(stack));
     }
     onStackChanged(stack) {
+        this.tryBaseSupply(stack);
         this.tryBaseRepair(stack);
         this.tryBarbedRoll(stack);
+    }
+    tryBaseSupply(stack) {
+        const delta = this.baseCamp.trySupplyFromStack(stack, this.stacks);
+        if (delta.food <= 0 && delta.water <= 0)
+            return;
+        this.scene.events.emit('base-supply-deposited', delta);
+        this.scene.events.emit('stack-changed', stack);
     }
     tryBaseRepair(stack) {
         const healed = this.baseCamp.tryRepairFromStack(stack, this.stacks);

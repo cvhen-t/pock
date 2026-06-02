@@ -5,6 +5,7 @@ import { HandInventory } from '../core/HandInventory';
 import { dataStore } from '../core/DataStore';
 import { describeStackDrop } from '../core/stackOutcomePreview';
 import GameCard, { boardDepthFromY } from '../objects/GameCard';
+import { resolveCardIconKey } from '../art/resolveCardIconKey';
 import { TEX } from '../art/textureKeys';
 import { clampCardCenter } from './playfieldClamp';
 import { fadeOutGhost, tweenCardEnter, tweenDragPickup } from './dragFx';
@@ -253,15 +254,7 @@ export default class HandBar extends Phaser.GameObjects.Container {
         return Math.max(0, this.contentScrollSize() - viewSize);
     }
     resolveIconKey(id, artKey, icon) {
-        if (artKey && this.scene.textures.exists(TEX.cardArt(artKey))) {
-            return TEX.cardArt(artKey);
-        }
-        const iconId = icon ?? id;
-        const procedural = TEX.icon(iconId);
-        if (this.scene.textures.exists(procedural)) {
-            return procedural;
-        }
-        return TEX.icon(id);
+        return resolveCardIconKey(this.scene, { id, artKey, icon });
     }
     clampScroll() {
         const max = this.maxScroll();

@@ -7,7 +7,9 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview --host",
-    "bake:vfx": "node scripts/bake-attack-vfx.mjs"
+    "bake:vfx": "node scripts/bake-attack-vfx.mjs",
+    "bake:icons": "npx tsx scripts/bake-card-icons.ts",
+    "process:world": "node scripts/process-world-sprite.mjs"
   },
   "dependencies": {
     "phaser": "beta"

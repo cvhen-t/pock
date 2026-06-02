@@ -8,22 +8,32 @@ const PANEL_W = 500;
 const PANEL_H = 400;
 const HEADER_TOP = -PANEL_H / 2;
 const TITLE_BAR_H = 32;
-const BUY_COLS = 4;
-const BUY_GAP_X = 108;
-const BUY_GAP_Y = 118;
-const THUMB_SCALE = 1.02;
+const BUY_COLS = 6;
+const SHELF_GAP_MIN = 4;
+const SHELF_GAP_MAX = 28;
+const SHOP_THUMB_SCALE = 0.88;
 const DRAG_THRESHOLD = 8;
-const SHELF_TOP = 88;
-const SHELF_BOTTOM_PAD = 14;
+const SHELF_TOP = 76;
+const SHELF_BOTTOM_PAD = 10;
+const SHELF_VIEW_INSET = 0;
 const SHELF_VIEW_H = PANEL_H - SHELF_TOP - SHELF_BOTTOM_PAD;
-const SHELF_CONTENT_PAD = 6;
+const SHELF_CONTENT_PAD = 2;
+const SHELF_PAD_X = 12;
+const SHELF_CLIP_W = PANEL_W - SHELF_PAD_X * 2;
 export default class TradePanel extends Phaser.GameObjects.Container {
     shop;
     callbacks;
     panelBg;
     titleBar;
     buyShelf;
-    shelfScrollHint;
+    shelfBottomCover;
+    shelfListings = [];
+    shelfMaxThumbH = 112;
+    shelfMaxThumbW = 56;
+    shelfRowStride = 117;
+    shelfColGap = SHELF_GAP_MIN;
+    shelfRowGap = SHELF_GAP_MIN;
+    shelfMask;
     shelfScroll = 0;
     shelfMaxScroll = 0;
     shelfViewBounds = new Phaser.Geom.Rectangle();
@@ -54,6 +64,7 @@ export default class TradePanel extends Phaser.GameObjects.Container {
     panelDrag = null;
     open = false;
     activeCategory = '';
+    activeShopCard = null;
     tabButtons = new Map();
     screenW = 800;
     screenH = 600;
@@ -105,29 +116,36 @@ export default class TradePanel extends Phaser.GameObjects.Container {
         this.tabBarShield.on('pointerdown', (p) => {
             p.event.stopPropagation();
         });
-        this.buyHint = scene.add.text(0, HEADER_TOP + 66, '拖入牌桌松手购买 · 滚轮滚动', {
+        this.buyHint = scene.add.text(0, HEADER_TOP + 66, '拖入牌桌松手购买 · 滚轮浏览商品', {
             fontSize: '10px',
             color: '#8a9a7a',
         });
         this.buyHint.setOrigin(0.5, 0);
-        const shelfViewCenterY = -PANEL_H / 2 + SHELF_TOP + SHELF_VIEW_H / 2;
-        this.buyShelf = scene.add.container(0, this.getShelfContentY());
-        this.shelfScrollHint = scene.add.text(PANEL_W / 2 - 28, shelfViewCenterY, '⇅', {
-            fontSize: '14px',
-            color: '#6a6058',
+        const shelfViewTop = this.getShelfViewTop();
+        const shelfBottom = shelfViewTop + SHELF_VIEW_H;
+        const bottomCoverH = PANEL_H / 2 - shelfBottom;
+        this.buyShelf = scene.add.container(0, shelfViewTop);
+        const shelfMaskGfx = scene.make.graphics({ x: 0, y: 0 });
+        shelfMaskGfx.fillStyle(0xffffff);
+        shelfMaskGfx.fillRect(-SHELF_CLIP_W / 2, 0, SHELF_CLIP_W, SHELF_VIEW_H);
+        this.shelfMask = shelfMaskGfx.createGeometryMask();
+        this.buyShelf.setMask(this.shelfMask);
+        this.shelfBottomCover = scene.add
+            .rectangle(0, shelfBottom + bottomCoverH / 2, PANEL_W - 4, bottomCoverH + 4, 0x2a2620, 1)
+            .setInteractive({ useHandCursor: false });
+        this.shelfBottomCover.on('pointerdown', (p) => {
+            p.event.stopPropagation();
         });
-        this.shelfScrollHint.setOrigin(0.5);
-        this.shelfScrollHint.setVisible(false);
         this.add([
             this.panelBg,
             this.buyShelf,
+            this.shelfBottomCover,
             this.tabBarShield,
             this.titleBar,
             title,
             this.capsText,
             this.closeBtn,
             this.buyHint,
-            this.shelfScrollHint,
             this.tabRow,
         ]);
         this.titleBar.on('pointerdown', (p) => {
@@ -176,7 +194,7 @@ export default class TradePanel extends Phaser.GameObjects.Container {
     buildCategoryTabs() {
         this.tabRow.removeAll(true);
         this.tabButtons.clear();
-        const cats = this.shop.getCategories();
+        const cats = this.getActiveCategories();
         const tabs = [];
         for (const cat of cats) {
             const active = cat.id === this.activeCategory;
@@ -213,18 +231,125 @@ export default class TradePanel extends Phaser.GameObjects.Container {
     getShelfViewTop() {
         return -PANEL_H / 2 + SHELF_TOP;
     }
-    getShelfContentY() {
-        return this.getShelfViewTop() - this.shelfScroll;
+    colGapFor(countInRow) {
+        const w = this.shelfMaxThumbW;
+        if (countInRow <= 1)
+            return 0;
+        return Phaser.Math.Clamp((SHELF_CLIP_W - countInRow * w) / (countInRow - 1), SHELF_GAP_MIN, SHELF_GAP_MAX);
+    }
+    /** 每行从左到右排列，与货架左缘对齐 */
+    shelfColX(col) {
+        const w = this.shelfMaxThumbW;
+        const gap = this.shelfColGap;
+        const rowLeft = -SHELF_CLIP_W / 2;
+        return rowLeft + col * (w + gap) + w / 2;
+    }
+    /** 卡牌尺寸固定；列/行间距按货架宽高在 [min,max] 内自适应 */
+    layoutShelfSpacing() {
+        const h = this.shelfMaxThumbH;
+        const rows = Math.ceil(this.shelfListings.length / BUY_COLS);
+        this.shelfColGap = this.colGapFor(BUY_COLS);
+        if (rows <= 1) {
+            this.shelfRowGap = 0;
+        }
+        else {
+            const minContentH = SHELF_CONTENT_PAD * 2 + rows * h + (rows - 1) * SHELF_GAP_MIN;
+            if (minContentH <= SHELF_VIEW_H) {
+                this.shelfRowGap = Phaser.Math.Clamp((SHELF_VIEW_H - SHELF_CONTENT_PAD * 2 - rows * h) / (rows - 1), SHELF_GAP_MIN, SHELF_GAP_MAX);
+            }
+            else {
+                this.shelfRowGap = SHELF_GAP_MIN;
+            }
+        }
+        this.shelfRowStride = h + this.shelfRowGap;
+    }
+    shelfThumbOptions(cardId, listing) {
+        const def = dataStore.getCard(cardId);
+        const count = listing.count ?? 1;
+        return {
+            scale: SHOP_THUMB_SCALE,
+            uniformStandard: true,
+            compactPrice: true,
+            title: def?.name ?? cardId,
+            subtitle: count > 1 ? `×${count}` : undefined,
+            priceCaps: listing.costCaps,
+            priceBelowCard: true,
+        };
+    }
+    measureShelfThumbSlot(listings) {
+        const probeId = listings[0]?.cardId;
+        if (!probeId) {
+            this.shelfMaxThumbH = 112;
+            this.shelfMaxThumbW = 56;
+            return;
+        }
+        const thumb = createCardThumb(this.scene, probeId, this.shelfThumbOptions(probeId, listings[0]));
+        if (!thumb) {
+            this.shelfMaxThumbH = 112;
+            this.shelfMaxThumbW = 56;
+            return;
+        }
+        this.shelfMaxThumbH = thumb.getData('thumbH') || 112;
+        this.shelfMaxThumbW = thumb.getData('thumbW') || 56;
+        thumb.destroy(true);
+    }
+    populateVisibleShelf() {
+        this.buyShelf.removeAll(true);
+        const listings = this.shelfListings;
+        if (listings.length === 0) {
+            const empty = this.scene.add.text(0, 20, '暂无商品', {
+                fontSize: '11px',
+                color: '#6a6058',
+            });
+            empty.setOrigin(0.5);
+            this.buyShelf.add(empty);
+            return;
+        }
+        const maxThumbH = this.shelfMaxThumbH;
+        const scrollTop = this.shelfScroll;
+        const scrollBottom = this.shelfScroll + SHELF_VIEW_H;
+        const totalRows = Math.ceil(listings.length / BUY_COLS);
+        const rowStride = this.shelfRowStride;
+        const firstRow = Math.max(0, Math.floor((scrollTop - SHELF_CONTENT_PAD) / rowStride) - 1);
+        const lastRow = Math.min(totalRows - 1, Math.ceil((scrollBottom - SHELF_CONTENT_PAD) / rowStride) + 1);
+        for (let row = firstRow; row <= lastRow; row++) {
+            const rowTop = SHELF_CONTENT_PAD + row * rowStride;
+            const rowBottom = rowTop + maxThumbH;
+            if (rowBottom < scrollTop || rowTop > scrollBottom)
+                continue;
+            const rowStart = row * BUY_COLS;
+            const countInRow = Math.min(BUY_COLS, listings.length - rowStart);
+            for (let col = 0; col < countInRow; col++) {
+                const index = rowStart + col;
+                const listing = listings[index];
+                const displayId = listing.cardId;
+                const x = this.shelfColX(col);
+                const thumb = createCardThumb(this.scene, displayId, this.shelfThumbOptions(displayId, listing));
+                if (!thumb)
+                    continue;
+                const thumbH = maxThumbH;
+                const thumbTop = rowTop - scrollTop;
+                const thumbBottom = thumbTop + thumbH;
+                if (thumbTop < SHELF_VIEW_INSET ||
+                    thumbBottom > SHELF_VIEW_H - SHELF_VIEW_INSET) {
+                    continue;
+                }
+                thumb.setPosition(x, rowTop + thumbH / 2 - scrollTop);
+                thumb.setData('listing', listing);
+                this.buyShelf.add(thumb);
+            }
+        }
     }
     applyShelfScroll() {
-        this.buyShelf.setY(this.getShelfContentY());
-        this.shelfScrollHint.setVisible(this.open && this.shelfMaxScroll > 0);
+        this.populateVisibleShelf();
         this.rebuildThumbHits();
     }
     rebuildThumbHits() {
         this.thumbHits = [];
         if (!this.open)
             return;
+        const viewTop = this.getShelfViewTop();
+        const viewBottom = viewTop + SHELF_VIEW_H;
         const children = this.buyShelf.getAll();
         for (const child of children) {
             const listing = child.getData('listing');
@@ -232,8 +357,13 @@ export default class TradePanel extends Phaser.GameObjects.Container {
                 continue;
             const hitW = child.getData('thumbW') || 56;
             const hitH = child.getData('thumbH') || 112;
+            const panelCy = this.getShelfViewTop() + child.y;
+            if (panelCy + hitH / 2 < viewTop + SHELF_VIEW_INSET ||
+                panelCy - hitH / 2 > viewBottom - SHELF_VIEW_INSET) {
+                continue;
+            }
             const cx = this.x + child.x;
-            const cy = this.y + this.buyShelf.y + child.y;
+            const cy = this.y + panelCy;
             this.thumbHits.push({
                 listing,
                 cardId: listing.cardId,
@@ -288,55 +418,25 @@ export default class TradePanel extends Phaser.GameObjects.Container {
     }
     /** Tab / 标题等 UI 始终在商品卡牌之上，避免误触购买 */
     bringChromeToFront() {
+        this.bringToTop(this.shelfBottomCover);
         this.bringToTop(this.tabBarShield);
         this.bringToTop(this.buyHint);
-        this.bringToTop(this.shelfScrollHint);
         this.bringToTop(this.tabRow);
         this.bringToTop(this.titleBar);
         this.bringToTop(this.capsText);
         this.bringToTop(this.closeBtn);
     }
     buildBuyShelf() {
-        this.buyShelf.removeAll(true);
         this.shelfScroll = 0;
-        const listings = this.shop.getBuyListings(this.activeCategory);
-        let maxThumbH = 112;
-        listings.forEach((listing, index) => {
-            const displayId = listing.cardId;
-            const row = Math.floor(index / BUY_COLS);
-            const col = index % BUY_COLS;
-            const rowStart = row * BUY_COLS;
-            const countInRow = Math.min(BUY_COLS, listings.length - rowStart);
-            const x = (col - (countInRow - 1) / 2) * BUY_GAP_X;
-            const def = dataStore.getCard(displayId);
-            const count = listing.count ?? 1;
-            const thumb = createCardThumb(this.scene, displayId, {
-                scale: THUMB_SCALE,
-                title: def?.name ?? displayId,
-                subtitle: count > 1 ? `×${count}` : undefined,
-                priceCaps: listing.costCaps,
-                priceBelowCard: true,
-            });
-            if (!thumb)
-                return;
-            maxThumbH = Math.max(maxThumbH, thumb.getData('thumbH') || 112);
-            const thumbH = thumb.getData('thumbH') || maxThumbH;
-            thumb.setPosition(x, SHELF_CONTENT_PAD + row * BUY_GAP_Y + thumbH / 2);
-            thumb.setData('listing', listing);
-            this.buyShelf.add(thumb);
-        });
-        const rows = Math.ceil(listings.length / BUY_COLS);
-        const contentH = rows > 0 ? SHELF_CONTENT_PAD + (rows - 1) * BUY_GAP_Y + maxThumbH : 0;
+        this.shelfListings = this.getActiveBuyListings(this.activeCategory);
+        this.measureShelfThumbSlot(this.shelfListings);
+        this.layoutShelfSpacing();
+        const rows = Math.ceil(this.shelfListings.length / BUY_COLS);
+        const contentH = rows > 0
+            ? SHELF_CONTENT_PAD + (rows - 1) * this.shelfRowStride + this.shelfMaxThumbH
+            : 0;
         this.shelfMaxScroll = Math.max(0, contentH - SHELF_VIEW_H);
         this.applyShelfScroll();
-        if (listings.length === 0) {
-            const empty = this.scene.add.text(0, 20, '暂无商品', {
-                fontSize: '11px',
-                color: '#6a6058',
-            });
-            empty.setOrigin(0.5);
-            this.buyShelf.add(empty);
-        }
         this.bringChromeToFront();
         this.rebuildThumbHits();
     }
@@ -493,7 +593,7 @@ export default class TradePanel extends Phaser.GameObjects.Container {
         return this.callbacks.isPlayfieldPoint(sx, sy);
     }
     completeBuy(listing, sx, sy) {
-        if (!this.callbacks.trySpendCaps(listing.costCaps)) {
+        if (listing.costCaps > 0 && !this.callbacks.trySpendCaps(listing.costCaps)) {
             this.scene.events.emit('drag-toast', '筹码不足');
             return;
         }
@@ -515,6 +615,16 @@ export default class TradePanel extends Phaser.GameObjects.Container {
             this.setPosition(this.screenW / 2, this.screenH * 0.38);
             this.positioned = true;
         }
+        const modeChanged = this.activeShopCard !== null &&
+            this.shop.isTestFreeShop(this.activeShopCard.definition) !==
+                this.shop.isTestFreeShop(shopCard.definition);
+        this.activeShopCard = shopCard;
+        if (modeChanged || !this.open) {
+            const cats = this.getActiveCategories();
+            this.activeCategory = cats[0]?.id ?? '';
+            this.buildCategoryTabs();
+            this.buildBuyShelf();
+        }
         if (this.open) {
             this.refreshCaps();
             this.syncPanelBounds();
@@ -527,7 +637,22 @@ export default class TradePanel extends Phaser.GameObjects.Container {
         this.refreshCaps();
         this.syncPanelBounds();
         this.rebuildThumbHits();
-        this.scene.events.emit('drag-toast', `${shopCard.definition.name}：拖入牌桌松手购买`, '#8a9a7a');
+        const hint = this.shop.isTestFreeShop(shopCard.definition)
+            ? `${shopCard.definition.name}：免费购入所有卡牌 · 拖入牌桌松手`
+            : `${shopCard.definition.name}：拖入牌桌松手购买`;
+        this.scene.events.emit('drag-toast', hint, '#8a9a7a');
+    }
+    getActiveCategories() {
+        if (this.activeShopCard && this.shop.isTestFreeShop(this.activeShopCard.definition)) {
+            return this.shop.getTestCategories();
+        }
+        return this.shop.getCategories();
+    }
+    getActiveBuyListings(categoryId) {
+        if (this.activeShopCard && this.shop.isTestFreeShop(this.activeShopCard.definition)) {
+            return this.shop.getTestBuyListings(categoryId);
+        }
+        return this.shop.getBuyListings(categoryId);
     }
     close() {
         if (!this.open)
@@ -570,7 +695,7 @@ export default class TradePanel extends Phaser.GameObjects.Container {
         const panelTop = this.y - PANEL_H / 2;
         this.panelScreenBounds.setTo(panelLeft, panelTop, PANEL_W, PANEL_H);
         const shelfTop = this.y + this.getShelfViewTop();
-        this.shelfViewBounds.setTo(panelLeft + 12, shelfTop, PANEL_W - 24, SHELF_VIEW_H);
+        this.shelfViewBounds.setTo(this.x - PANEL_W / 2 + SHELF_PAD_X, shelfTop, SHELF_CLIP_W, SHELF_VIEW_H);
     }
     isOpen() {
         return this.open;

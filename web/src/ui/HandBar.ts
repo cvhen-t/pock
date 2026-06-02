@@ -13,6 +13,7 @@ import { dataStore } from '../core/DataStore';
 import { describeStackDrop } from '../core/stackOutcomePreview';
 import GameCard, { boardDepthFromY } from '../objects/GameCard';
 import type { StackDropHint } from './StackDropHint';
+import { resolveCardIconKey } from '../art/resolveCardIconKey';
 import { TEX } from '../art/textureKeys';
 import type { CardDragSystem } from '../systems/CardDragSystem';
 import type { CardStackSystem } from '../systems/CardStackSystem';
@@ -366,15 +367,7 @@ export default class HandBar extends Phaser.GameObjects.Container {
   }
 
   private resolveIconKey(id: string, artKey?: string, icon?: string): string {
-    if (artKey && this.scene.textures.exists(TEX.cardArt(artKey))) {
-      return TEX.cardArt(artKey);
-    }
-    const iconId = icon ?? id;
-    const procedural = TEX.icon(iconId);
-    if (this.scene.textures.exists(procedural)) {
-      return procedural;
-    }
-    return TEX.icon(id);
+    return resolveCardIconKey(this.scene, { id, artKey, icon });
   }
 
   private clampScroll(): void {

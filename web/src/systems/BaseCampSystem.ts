@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 
 import type { CardStack, CardStackSystem } from './CardStackSystem';
-import { consumeCardQuantity } from '../core/cardQuantity';
+import { consumeCardQuantity, getCardQuantity } from '../core/cardQuantity';
 import { CardHpBar } from '../ui/CardHpBar';
 import GameCard from '../objects/GameCard';
 
@@ -148,6 +148,40 @@ export class BaseCampSystem {
       this.scene.events.emit('base-repaired', { amount: this.healPerScrap });
     }
     return healed;
+  }
+
+  /** Deposit food / clean water cards stacked on base into HUD supplies. */
+  trySupplyFromStack(
+    stack: CardStack,
+    stacks: CardStackSystem,
+  ): { food: number; water: number } {
+    const empty = { food: 0, water: 0 };
+    if (!this.card || stack.base !== this.card) return empty;
+
+    let food = 0;
+    let water = 0;
+    const consumed: GameCard[] = [];
+
+    for (const member of stack.members) {
+      const tags = member.definition.tags ?? [];
+      const qty = getCardQuantity(member);
+      if (tags.includes('food')) {
+        food += qty;
+        consumed.push(member);
+      } else if (tags.includes('water')) {
+        water += qty;
+        consumed.push(member);
+      }
+    }
+
+    if (consumed.length === 0) return empty;
+
+    for (const card of consumed) {
+      consumeCardQuantity(card, getCardQuantity(card), stacks);
+    }
+    stack.members = stack.members.filter((m) => m.active);
+
+    return { food, water };
   }
 
   private onDayEnd(): void {

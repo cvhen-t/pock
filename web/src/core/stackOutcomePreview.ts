@@ -1,5 +1,5 @@
 import { dataStore } from './DataStore';
-import { isQuantityMergePair } from './cardQuantity';
+import { getCardQuantity, isQuantityMergePair } from './cardQuantity';
 import { previewFacilityRecipe } from './recipeMatch';
 import type GameCard from '../objects/GameCard';
 import type { CardDefinition } from '../types/gameData';
@@ -55,6 +55,22 @@ export function describeStackDrop(
   if (dragId === 'scrap' && baseTags.includes('base')) {
     const heal = getBaseCoreEffect(base.definition)?.healPerScrap ?? 2;
     return { primary: `本营 +${heal} 耐久`, secondary: '消耗零件' };
+  }
+
+  if (dragTags.includes('food') && baseTags.includes('base')) {
+    const qty = getCardQuantity(dragged);
+    return {
+      primary: qty > 1 ? `食物 +${qty}` : '食物 +1',
+      secondary: '存入大本营',
+    };
+  }
+
+  if (dragTags.includes('water') && baseTags.includes('base')) {
+    const qty = getCardQuantity(dragged);
+    return {
+      primary: qty > 1 ? `净水 +${qty}` : '净水 +1',
+      secondary: '存入大本营',
+    };
   }
 
   if (dragId === 'barbed_roll' && baseTags.includes('barrier')) {

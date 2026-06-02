@@ -251,6 +251,7 @@ export class CardDragSystem {
             this.scene.tweens.killTweensOf(c);
             tweenDragPickup(this.scene, c, 1.06);
         }
+        this.scene.events.emit('card-drag-start', { cards });
         if (pileMode) {
             this.scene.events.emit('drag-toast', stack.members.length > 0 ? '右键：整摞拖动' : '右键：整组拖动');
         }
@@ -327,10 +328,11 @@ export class CardDragSystem {
         const drag = this.active;
         if (!drag)
             return;
+        const draggedCards = [...drag.cards];
         this.active = null;
         this.dropHint?.hide();
         this.hoverScreen?.(-1, -1);
-        for (const c of drag.cards) {
+        for (const c of draggedCards) {
             this.scene.tweens.killTweensOf(c);
             c.setScale(1);
             c.setDepth(boardDepthFromY(c.y));
@@ -338,12 +340,16 @@ export class CardDragSystem {
         const card = drag.leader;
         const wholePile = drag.mode === 'pile';
         const pointer = this.scene.input.activePointer;
+        const emitDragEnd = (result) => {
+            this.onDrop(result);
+            this.scene.events.emit('card-drag-end', { cards: draggedCards, result });
+        };
         if (this.sellDrop?.(card, pointer.x, pointer.y)) {
             this.stacks.removeCardFromPlay(card);
             card.destroy();
             this.cards.delete(card);
             this.stacks.reconcile(this.cards);
-            this.onDrop({ card, stacked: false, wholePile });
+            emitDragEnd({ card, stacked: false, wholePile });
             return;
         }
         if (wholePile) {
@@ -352,24 +358,24 @@ export class CardDragSystem {
                 this.stacks.layoutStack(stack);
             this.clampBoardCard(card);
             this.stacks.reconcile(this.cards);
-            this.onDrop({ card, stacked: false, wholePile: true });
+            emitDragEnd({ card, stacked: false, wholePile: true });
             return;
         }
         if (this.storeInHand?.(card, pointer.x, pointer.y)) {
             this.stacks.reconcile(this.cards);
-            this.onDrop({ card, stacked: false, wholePile: false, storedInHand: true });
+            emitDragEnd({ card, stacked: false, wholePile: false, storedInHand: true });
             return;
         }
         if (this.dropToActionBar?.(card, pointer.x, pointer.y)) {
             this.stacks.reconcile(this.cards);
-            this.onDrop({ card, stacked: false, wholePile: false, storedInActionBar: true });
+            emitDragEnd({ card, stacked: false, wholePile: false, storedInActionBar: true });
             return;
         }
         const target = this.stacks.findCardUnder(card.x, card.y, card);
         if (target && this.stacks.tryStack(card, target)) {
             this.clampBoardCard(card);
             this.stacks.reconcile(this.cards);
-            this.onDrop({
+            emitDragEnd({
                 card,
                 stacked: true,
                 targetName: target.definition.name,
@@ -386,7 +392,7 @@ export class CardDragSystem {
         }
         this.clampBoardCard(card);
         this.stacks.reconcile(this.cards);
-        this.onDrop({ card, stacked: false, wholePile: false });
+        emitDragEnd({ card, stacked: false, wholePile: false });
     }
     clampBoardCard(card) {
         const pf = this.getPlayfield?.();

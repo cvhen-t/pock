@@ -1,7 +1,8 @@
 import Phaser from 'phaser';
 
-import { resolveCardMetrics } from '../config/cardLayout';
+import { CARD_SHAPES, resolveCardMetrics } from '../config/cardLayout';
 import { dataStore } from '../core/DataStore';
+import { resolveCardIconKey } from '../art/resolveCardIconKey';
 import { TEX } from '../art/textureKeys';
 import type { CardDefinition, CardShape } from '../types/gameData';
 
@@ -20,6 +21,10 @@ export interface CompactCardThumbOptions {
   title?: string;
   /** 价格徽章放在卡牌下方，避免遮挡名称 */
   priceBelowCard?: boolean;
+  /** 商店货架：忽略卡牌 shape，统一为标准竖版尺寸 */
+  uniformStandard?: boolean;
+  /** 收紧价格行间距（商店网格） */
+  compactPrice?: boolean;
 }
 
 /** HUD-sized card preview (shop shelf, tooltips). */
@@ -32,11 +37,12 @@ export function createCardThumb(
   if (!def) return null;
 
   const scale = options.scale ?? 0.82;
-  const shape = def.shape ?? 'standard';
-  const metrics = resolveCardMetrics(def);
+  const uniform = options.uniformStandard ?? false;
+  const shape = uniform ? 'standard' : (def.shape ?? 'standard');
+  const metrics = uniform ? CARD_SHAPES.standard : resolveCardMetrics(def);
   const w = metrics.w * scale;
   const h = metrics.h * scale;
-  const shellKey = SHELL_BY_SHAPE[shape] ?? TEX.CARD_SHELL;
+  const shellKey = uniform ? TEX.CARD_SHELL : (SHELL_BY_SHAPE[shape] ?? TEX.CARD_SHELL);
 
   const container = scene.add.container(0, 0);
   const shell = scene.add.image(0, 0, shellKey);
@@ -75,16 +81,17 @@ export function createCardThumb(
   let totalH = h;
   if (options.priceCaps !== undefined) {
     const below = options.priceBelowCard ?? false;
-    const priceY = below ? h / 2 + 10 : h * 0.46;
+    const compact = options.compactPrice ?? false;
+    const priceY = below ? h / 2 + (compact ? 2 : 10) : h * 0.46;
     const price = scene.add.text(0, priceY, `${options.priceCaps} 筹`, {
-      fontSize: `${Math.max(10, Math.round(11 * (scale / 0.82)))}px`,
+      fontSize: `${Math.max(compact ? 9 : 10, Math.round(11 * (scale / 0.82)))}px`,
       color: '#f0d878',
       backgroundColor: '#3a3020',
-      padding: { x: 6, y: 2 },
+      padding: compact ? { x: 3, y: 0 } : { x: 6, y: 2 },
     });
     price.setOrigin(0.5, 0);
     container.add(price);
-    if (below) totalH = h / 2 + priceY + price.height + 4;
+    if (below) totalH = h / 2 + priceY + price.height + (compact ? 1 : 4);
   }
 
   container.setSize(w, totalH);
@@ -95,13 +102,5 @@ export function createCardThumb(
 }
 
 function resolveIconKey(scene: Phaser.Scene, def: CardDefinition): string {
-  if (def.artKey && scene.textures.exists(TEX.cardArt(def.artKey))) {
-    return TEX.cardArt(def.artKey);
-  }
-  const iconId = def.icon ?? def.id;
-  const procedural = TEX.icon(iconId);
-  if (scene.textures.exists(procedural)) {
-    return procedural;
-  }
-  return TEX.icon(def.id);
+  return resolveCardIconKey(scene, def);
 }

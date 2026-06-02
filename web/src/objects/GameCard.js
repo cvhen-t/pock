@@ -1,6 +1,8 @@
 import Phaser from 'phaser';
+import { resolveCardIconKey } from '../art/resolveCardIconKey';
 import { TEX } from '../art/textureKeys';
 import { layoutCardContent, resolveCardMetrics } from '../config/cardLayout';
+import { resolveWorldSprite } from '../art/WorldSpriteRegistry';
 export { CARD_W, CARD_H } from '../config/cardLayout';
 /** Visual card only — drag handled by CardDragSystem. */
 export default class GameCard extends Phaser.GameObjects.Container {
@@ -17,6 +19,9 @@ export default class GameCard extends Phaser.GameObjects.Container {
     icon;
     label;
     qtyBadge;
+    worldSprite;
+    placedSwayTween;
+    displayMode = 'card';
     constructor(scene, x, y, definition) {
         super(scene, x, y);
         this.definition = definition;
@@ -105,6 +110,74 @@ export default class GameCard extends Phaser.GameObjects.Container {
     syncHitSize() {
         this.setSize(this.cardWidth, this.cardHeight);
     }
+    getDisplayMode() {
+        return this.displayMode;
+    }
+    hasPlacedVisual() {
+        return Boolean(this.definition.placedVisual);
+    }
+    setDisplayMode(mode) {
+        const config = this.definition.placedVisual;
+        if (!config)
+            return;
+        if (mode === 'placed') {
+            const entry = resolveWorldSprite(config);
+            if (!entry)
+                return;
+            this.ensureWorldSprite(entry, config);
+            this.face.setVisible(false);
+            this.worldSprite.setVisible(true);
+            if (entry.tweenSway) {
+                this.startPlacedSway();
+            }
+            else if (!this.worldSprite.anims.isPlaying) {
+                this.worldSprite.play(entry.animKey);
+            }
+            this.displayMode = 'placed';
+            return;
+        }
+        this.stopPlacedSway();
+        this.face.setVisible(true);
+        this.worldSprite?.setVisible(false);
+        this.worldSprite?.anims.stop();
+        this.displayMode = 'card';
+    }
+    startPlacedSway() {
+        if (!this.worldSprite || this.placedSwayTween?.isPlaying())
+            return;
+        this.worldSprite.setAngle(0);
+        this.placedSwayTween = this.scene.tweens.add({
+            targets: this.worldSprite,
+            angle: -3,
+            duration: 1400,
+            yoyo: true,
+            repeat: -1,
+            ease: 'Sine.easeInOut',
+        });
+    }
+    stopPlacedSway() {
+        this.placedSwayTween?.remove();
+        this.placedSwayTween = undefined;
+        if (this.worldSprite) {
+            this.worldSprite.setAngle(0);
+        }
+    }
+    ensureWorldSprite(entry, config) {
+        if (this.worldSprite)
+            return;
+        const scale = config.scale ?? entry.defaultScale;
+        const feetY = config.feetOffsetY ?? entry.defaultFeetOffsetY;
+        this.worldSprite = this.scene.add.sprite(0, feetY, entry.atlasKey, 0);
+        this.worldSprite.setOrigin(0.5, 1);
+        this.worldSprite.setScale(scale);
+        this.add(this.worldSprite);
+    }
+    destroy(fromScene) {
+        this.stopPlacedSway();
+        this.worldSprite?.destroy();
+        this.worldSprite = undefined;
+        super.destroy(fromScene);
+    }
 }
 export function boardDepthFromY(y) {
     return 10 + Math.round(y);
@@ -124,13 +197,5 @@ function shellTextureForShape(shape) {
     }
 }
 function resolveIconKey(scene, def) {
-    if (def.artKey && scene.textures.exists(TEX.cardArt(def.artKey))) {
-        return TEX.cardArt(def.artKey);
-    }
-    const iconId = def.icon ?? def.id;
-    const procedural = TEX.icon(iconId);
-    if (scene.textures.exists(procedural)) {
-        return procedural;
-    }
-    return TEX.icon(def.id);
+    return resolveCardIconKey(scene, def);
 }

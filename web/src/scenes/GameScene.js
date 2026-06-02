@@ -10,12 +10,12 @@ import { CardStackSystem } from '../systems/CardStackSystem';
 import { DefenseTurretSystem } from '../systems/DefenseTurretSystem';
 import { EnemyStatusSystem } from '../systems/EnemyStatusSystem';
 import { PlantActivationSystem } from '../systems/PlantActivationSystem';
+import { PlacedVisualSystem } from '../systems/PlacedVisualSystem';
 import { PlantAttackVfxSystem } from '../systems/PlantAttackVfxSystem';
 import { InvasionSystem } from '../systems/InvasionSystem';
 import { MutantGrowthSystem } from '../systems/MutantGrowthSystem';
 import { CraftStationSystem } from '../systems/CraftStationSystem';
 import { RanchSystem } from '../systems/RanchSystem';
-import { ResourcePickupSystem } from '../systems/ResourcePickupSystem';
 import { InvasionConfig } from '../core/InvasionConfig';
 import { BaseCampSystem } from '../systems/BaseCampSystem';
 import { BarrierSystem } from '../systems/BarrierSystem';
@@ -73,6 +73,7 @@ export default class GameScene extends Phaser.Scene {
         }
         this.dropConfig.load(this.cache.json.get('invasion_drops'));
         this.shopCatalog.load(this.cache.json.get('shop'));
+        this.shopCatalog.buildTestFreeListings(dataStore.getAllCards());
         const starterRecipes = this.cache.json.get('recipes_starter');
         const facilityRecipes = this.cache.json.get('recipes_facility');
         dataStore.setRecipes([
@@ -127,16 +128,10 @@ export default class GameScene extends Phaser.Scene {
         this.dragSystem.setHoverScreen((sx, sy) => this.updateActionBarDropHover(sx, sy));
         this.dragSystem.setPlayfieldBounds(() => this.layout?.playfield);
         this.dragSystem.setSellDrop((card, sx, sy) => this.tryTradeSellBoard(card, sx, sy));
+        new PlacedVisualSystem(this, this.stackSystem);
         const growthTables = this.cache.json.get('growth');
         this.workSites = new WorkSiteSystem(this, this.stackSystem, this.spawner);
         this.mutantGrowth = new MutantGrowthSystem(this, this.stackSystem, this.spawner, growthTables);
-        new ResourcePickupSystem(this, (delta, card) => {
-            this.resources.food += delta.food;
-            this.resources.water += delta.water;
-            this.resources.caps += delta.caps;
-            this.topHud.setResources(this.resources);
-            this.showToast(`收集：${card.definition.name}`, '#8a9a7a');
-        });
         this.events.on('worksite-produced', ({ outputCardId }) => {
             const def = dataStore.getCard(outputCardId);
             this.showToast(`产出：${def?.name ?? outputCardId}`, '#8a9a7a');
@@ -175,6 +170,19 @@ export default class GameScene extends Phaser.Scene {
         this.events.on('base-hp-changed', () => this.syncBaseHud());
         this.events.on('base-repaired', ({ amount }) => {
             this.showToast(`大本营修复 +${amount}`, '#6a9a6a');
+        });
+        this.events.on('base-supply-deposited', ({ food, water }) => {
+            if (food > 0) {
+                this.resources.food += food;
+                this.showToast(food > 1 ? `食物 +${food}` : '食物 +1', '#8a9a7a');
+            }
+            if (water > 0) {
+                this.resources.water += water;
+                this.showToast(water > 1 ? `净水 +${water}` : '净水 +1', '#8a9a7a');
+            }
+            if (food > 0 || water > 0) {
+                this.topHud.setResources(this.resources);
+            }
         });
         this.events.on('base-day-regen', ({ amount }) => {
             this.showToast(`每日休整：本营 +${amount}`, '#8a9a7a');
@@ -449,6 +457,7 @@ export default class GameScene extends Phaser.Scene {
             this.events.emit('card-spawned', card);
         }
         this.clampAllBoardCards();
+        this.backpackBar.addCard('test_shop', 1);
         this.syncBaseHud();
     }
     setupDayCycle() {

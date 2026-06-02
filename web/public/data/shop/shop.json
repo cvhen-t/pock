@@ -46,6 +46,7 @@
     { "cardId": "berry_mutant", "caps": 1 },
     { "cardId": "water_dirty", "caps": 1 },
     { "tag": "food", "caps": 1 },
+    { "tag": "currency", "caps": 1 },
     { "tag": "material", "caps": 1 },
     { "tag": "weapon", "caps": 2 },
     { "tag": "facility", "caps": 3 }

@@ -104,6 +104,9 @@
       "shape": "slim",
       "tags": ["attack_plant"],
       "color": "#2e4a28",
+      "placedVisual": {
+        "spriteId": "plant_thornvine_world"
+      },
       "effects": [
         {
           "type": "defense_turret",
@@ -112,10 +115,12 @@
           "hp": 8,
           "attackCooldown": 1.2,
           "attackPresentation": {
-            "style": "underground_vine",
-            "spawnFrom": "target_feet",
+            "style": "vine_lash",
+            "spawnFrom": "plant_base",
             "hitFrame": 5,
-            "frameRate": 12
+            "frameRate": 16,
+            "floaterColor": "#c4a878",
+            "onHitTint": "#6a5038"
           }
         }
       ]
@@ -127,6 +132,9 @@
       "shape": "standard",
       "tags": ["attack_plant"],
       "color": "#2a4230",
+      "placedVisual": {
+        "spriteId": "plant_sporegun_world"
+      },
       "effects": [
         {
           "type": "defense_turret",
@@ -150,6 +158,9 @@
       "shape": "slim",
       "tags": ["attack_plant"],
       "color": "#3a4a28",
+      "placedVisual": {
+        "spriteId": "plant_snare_root_world"
+      },
       "effects": [
         {
           "type": "defense_turret",
@@ -175,6 +186,9 @@
       "shape": "standard",
       "tags": ["attack_plant"],
       "color": "#4a5a30",
+      "placedVisual": {
+        "spriteId": "plant_acid_bloom_world"
+      },
       "effects": [
         {
           "type": "plant_activation",

@@ -1,0 +1,55 @@
+---
+description: 牌桌放置态世界精灵——AI 出图规格、透明底、压缩、配置与代码接入
+globs: web/public/assets/world/**,web/src/art/worldSprite*,web/src/art/ThornvineWorldFrames.ts,web/src/systems/PlacedVisualSystem.ts,web/public/data/cards/**
+alwaysApply: false
+---
+
+# 牌桌放置态世界精灵（world_sprite）
+
+完整美术规范见 `docs/art-style-prompt.md`「牌桌放置态世界精灵」章节。新增植物/建筑等放置态元素 **必须** 按此流程。
+
+## 表现
+
+- **拖拽**：`GameCard` 卡面
+- **放置（栈底）**：`assets/world/` PNG 精灵 + 轻微 `tweenSway`
+- **逻辑**：仍绑 `GameCard`，不改 turret/growth 等系统
+
+## AI 资产（每张）
+
+| 项 | 值 |
+|---|---|
+| 路径 | `web/public/assets/world/{cardId}_world.png` |
+| Sidecar | 同名 `.prompt.json`，`assetType: "world_sprite"` |
+| 尺寸 | **768×512**，比例 **3:2** |
+| 体积 | **≤ 200 KB**（目标 100–150 KB） |
+| 透明 | **真 Alpha**；禁止烘焙棋盘格/白底 |
+
+入库前：去假透明 → 缩 768×512 → 压缩 PNG。
+
+## 卡牌配置
+
+```json
+"placedVisual": { "spriteId": "plant_thornvine_world" }
+```
+
+写在对应 `deck_*.json`，禁止在 TS 里硬编码 cardId 分支。
+
+## 代码接入（按顺序）
+
+1. PNG + `.prompt.json` → `assets/world/`
+2. `worldSpriteManifest.ts` — 新 manifest 条目（`defaultScale` 用 `目标宽px/768`，约 `0.18`）
+3. `worldSpriteKeys.ts` — 新 atlas/anim key（若需要）
+4. 可选程序回退帧 — `worldSpriteRegister.ts` 的 `PROCEDURAL_BUILDERS`
+5. 不改 `PlacedVisualSystem` / `GameCard` 除非通用能力缺失
+
+## 禁止
+
+- 1536+ 大图直接入库不压缩
+- 无 `.prompt.json` 的 AI 图
+- 在业务代码 `if (cardId === 'xxx')` 切换放置表现
+- 为单张卡新建一套平行实体系统
+
+## 参考
+
+- 范例资产：`plant_thornvine_world.png` + `.prompt.json`
+- 范例配置：`deck_attack.json` → `plant_thornvine.placedVisual`

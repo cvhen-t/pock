@@ -8,6 +8,15 @@ export interface CardEffect {
   [key: string]: unknown;
 }
 
+/** Placed-on-board world sprite (card face while dragging). */
+export interface PlacedVisualConfig {
+  /** Key in world sprite registry, e.g. `plant_thornvine_world`. */
+  spriteId: string;
+  scale?: number;
+  /** Y offset from card center to sprite feet (px). */
+  feetOffsetY?: number;
+}
+
 export interface CardDefinition {
   id: string;
   name: string;
@@ -21,6 +30,7 @@ export interface CardDefinition {
   icon?: string;
   /** `public/assets/cards/{artKey}.png` when present. */
   artKey?: string;
+  placedVisual?: PlacedVisualConfig;
   effects?: CardEffect[];
 }
 

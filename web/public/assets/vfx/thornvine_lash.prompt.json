@@ -1,0 +1,14 @@
+{
+  "styleDoc": "docs/art-style-prompt.md",
+  "assetType": "vfx",
+  "positive": "post-apocalyptic survival card game VFX spritesheet, horizontal strip 8 equal frames, rust thornvine whip lash animation from plant base, multiple dark olive twisted vines with rusted metal thorns, semi-realistic hand-painted, dark muted green and brown, wet organic texture, slight top-down 3/4, frame 6 rust-orange impact burst, transparent background, matches plant_thornvine_world style, no text",
+  "negative": "neon, cyberpunk, anime, chibi, bright colors, flat geometric, checkerboard background, white background, text, UI, grid lines between frames",
+  "aspectRatio": "7:1",
+  "frameWidth": 96,
+  "frameHeight": 112,
+  "frameCount": 8,
+  "recommendedSize": "768x112",
+  "tool": "cursor-generate",
+  "referenceAsset": "assets/world/plant_thornvine_world.png",
+  "notes": "AI 精致版；入库前 node scripts/process-thornvine-lash.mjs；缺 PNG 时回退 ThornvineLashFrames"
+}

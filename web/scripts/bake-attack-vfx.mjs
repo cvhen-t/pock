@@ -229,6 +229,149 @@ function drawAcidFrame(ctx, ox, oy, frame, w, h) {
   ctx.fill();
 }
 
+function placeThorn(ctx, x, y, dir) {
+  ctx.fillStyle = rgba(0x5c4038, 1);
+  ctx.beginPath();
+  ctx.moveTo(x, y);
+  ctx.lineTo(x + dir * 3, y + 6);
+  ctx.lineTo(x - dir * 2, y + 7);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = rgba(0x7a5a48, 0.9);
+  ctx.beginPath();
+  ctx.arc(x, y + 1, 2, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function drawLashStem(ctx, x0, y0, x1, y1, width, thorns) {
+  const mx = (x0 + x1) / 2 + (x1 - x0) * 0.08;
+  const my = (y0 + y1) / 2 - 6;
+
+  ctx.strokeStyle = rgba(0x2e4a28, 1);
+  ctx.lineWidth = width;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.beginPath();
+  ctx.moveTo(x0, y0);
+  ctx.lineTo(mx, my);
+  ctx.lineTo(x1, y1);
+  ctx.stroke();
+
+  ctx.strokeStyle = rgba(0x3a5c32, 0.85);
+  ctx.lineWidth = Math.max(1.5, width - 1.5);
+  ctx.beginPath();
+  ctx.moveTo(x0, y0);
+  ctx.lineTo(mx, my);
+  ctx.stroke();
+
+  if (thorns) {
+    placeThorn(ctx, mx - 7, my + 3, -1);
+    placeThorn(ctx, mx + 8, my + 2, 1);
+  }
+}
+
+function drawThornvineLashFrame(ctx, ox, oy, frame, w, h) {
+  const baseX = ox + w / 2;
+  const groundY = oy + h - 8;
+  const grow = clamp(frame / 5, 0, 1);
+  const whip = frame >= 4 && frame <= 6 ? 1 : frame >= 2 ? 0.55 : 0;
+  const lean = frame >= 5 ? -14 : frame >= 3 ? -8 : frame >= 1 ? -3 : 0;
+
+  ctx.fillStyle = rgba(0x1a1612, 0.06);
+  ctx.fillRect(ox, oy, w, h);
+
+  ctx.fillStyle = rgba(0x2a241c, 0.4);
+  ctx.beginPath();
+  ctx.ellipse(baseX + lean * 0.2, groundY + 2, 10 + grow * 6, 3.5, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = rgba(0x3a3228, 1);
+  ctx.fillRect(baseX - 3, groundY - 10, 6, 12);
+
+  if (frame === 0) {
+    ctx.strokeStyle = rgba(0x3a5c32, 0.7);
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(baseX, groundY - 8);
+    ctx.lineTo(baseX - 6, groundY - 18);
+    ctx.moveTo(baseX, groundY - 8);
+    ctx.lineTo(baseX + 8, groundY - 16);
+    ctx.stroke();
+    return;
+  }
+
+  const mainLen = 12 + grow * 72;
+  const tipX = baseX + lean;
+  const tipY = groundY - mainLen;
+
+  drawLashStem(ctx, baseX, groundY - 6, tipX, tipY, 4, true);
+
+  if (grow >= 0.35) {
+    const branchT = 0.45 + whip * 0.15;
+    const bx = baseX + (tipX - baseX) * branchT;
+    const by = groundY - 6 + (tipY - (groundY - 6)) * branchT;
+    drawLashStem(ctx, bx, by, bx - 18 - whip * 6, by - 22 - whip * 8, 2.5, false);
+    drawLashStem(ctx, bx, by, bx + 16 + whip * 4, by - 18 - whip * 6, 2.5, false);
+  }
+
+  if (grow >= 0.55) {
+    const midX = baseX + (tipX - baseX) * 0.62;
+    const midY = groundY - 6 + (tipY - (groundY - 6)) * 0.62;
+    placeThorn(ctx, midX - 10, midY + 2, -1);
+    placeThorn(ctx, midX + 9, midY + 4, 1);
+  }
+
+  if (frame >= 3) {
+    placeThorn(ctx, tipX - 8, tipY + 6, -1);
+    placeThorn(ctx, tipX + 7, tipY + 5, 1);
+    ctx.fillStyle = rgba(0x4a5c38, 1);
+    ctx.beginPath();
+    ctx.arc(tipX, tipY, 5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = rgba(0x3a4a30, 1);
+    ctx.beginPath();
+    ctx.arc(tipX - 2, tipY + 1, 3, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  if (frame >= 5) {
+    ctx.strokeStyle = rgba(0x4a6a38, 0.9);
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(tipX, tipY);
+    ctx.lineTo(tipX - 16, tipY - 8);
+    ctx.moveTo(tipX, tipY);
+    ctx.lineTo(tipX + 14, tipY - 6);
+    ctx.moveTo(tipX, tipY);
+    ctx.lineTo(tipX - 4, tipY - 18);
+    ctx.stroke();
+  }
+
+  if (frame === 6) {
+    ctx.fillStyle = rgba(0x8a6a48, 0.35);
+    ctx.beginPath();
+    ctx.arc(tipX, tipY - 2, 16, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = rgba(0x7a5a48, 0.85);
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(tipX, tipY - 2, 13, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.fillStyle = rgba(0x6a8a48, 0.25);
+    ctx.beginPath();
+    ctx.arc(tipX, tipY - 2, 9, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  if (frame === 7) {
+    ctx.fillStyle = rgba(0x2e2820, 0.35);
+    ctx.beginPath();
+    ctx.ellipse(baseX, groundY, 8, 2.5, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+bakeAtlas('thornvine_lash', 96, 112, 8, drawThornvineLashFrame);
 bakeAtlas('underground_vine', 72, 96, 8, drawVineFrame);
 bakeAtlas('underground_snare', 80, 72, 8, drawSnareFrame);
 bakeAtlas('spore_burst', 72, 64, 6, drawSporeFrame);

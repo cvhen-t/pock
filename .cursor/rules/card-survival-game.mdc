@@ -51,6 +51,7 @@ effectRunner.run(card.effects, context);
 
 - 每张 AI 生成图 **必须** 附带完整 `prompt`（及 negative、比例、风格 token），与资产同目录或 sidecar（如 `hero.png` + `hero.prompt.json`）。
 - 所有 prompt 遵循 **统一风格文档**（`docs/art-style-prompt.md` 或等价）：色调、线条、视角、禁止项；生成前引用该文档，不得临时换风格。
+- **牌桌放置态**（拖起卡面 / 放下精灵）遵循 `docs/art-style-prompt.md` →「牌桌放置态世界精灵」章节；细则见 `.cursor/rules/world-placed-visual.mdc`。
 
 ---
 
