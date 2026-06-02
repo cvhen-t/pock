@@ -1,0 +1,10 @@
+{
+  "styleDoc": "docs/art-style-prompt.md",
+  "assetType": "card_item",
+  "cardId": "base_camp",
+  "positive": "post-apocalyptic survival card game illustration, dark muted colors, hand-painted texture, rusty worn materials, semi-realistic, top-down item card art, simple background, consistent lighting, single object centered, improvised scrap-metal shelter headquarters, sandbag walls, rust corrugated roof, bright door, small command flag on pole, clear silhouette, minimal background",
+  "negative": "neon lights, cyberpunk, sci-fi futuristic, high saturation, anime, chibi, tentacles, eldritch, black background, card frame",
+  "aspectRatio": "1:1",
+  "tool": "procedural-bake",
+  "notes": "v2 程序化图标：顶视避难所+沙袋+指挥旗；确认后可作 AI 出图参考"
+}

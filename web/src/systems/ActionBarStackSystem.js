@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { CARD_DROP_RADIUS, resolveCardMetrics } from '../config/cardLayout';
+import { CARD_DROP_RADIUS, STACK_SNAP } from '../config/cardLayout';
 /**
  * Free-form blueprint piles in the bottom action bar (screen-space, no gameplay effects).
  */
@@ -80,7 +80,7 @@ export class ActionBarStackSystem {
         }
     }
     layoutStack(stack) {
-        const snap = resolveCardMetrics(stack.base.definition).stackSnap * 0.55;
+        const snap = STACK_SNAP * 0.55;
         let offsetY = -snap;
         for (let i = 0; i < stack.members.length; i++) {
             const member = stack.members[i];

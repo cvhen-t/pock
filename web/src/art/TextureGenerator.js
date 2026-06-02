@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { CARD_SHAPES } from '../config/cardLayout';
-import { drawIconFrame, drawIconKind } from './cardIconDraw';
+import { drawIconKind } from './cardIconDraw';
 import { resolveIconKind } from './cardIconKinds';
 import { phaserIconCtx } from './cardIconPhaserCtx';
 import { TEX } from './textureKeys';
@@ -101,7 +101,6 @@ function drawCardIcon(scene, cardId, key) {
     const size = 64;
     const g = scene.make.graphics({ x: 0, y: 0 }, false);
     const ctx = phaserIconCtx(g);
-    drawIconFrame(ctx, size);
     drawIconKind(ctx, resolveIconKind(cardId), size);
     g.generateTexture(key, size, size);
     g.destroy();

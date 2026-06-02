@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 
-import { CARD_SHAPES, resolveCardMetrics } from '../config/cardLayout';
+import { CARD_H, CARD_SHAPES, CARD_W } from '../config/cardLayout';
 import {
   HAND_DRAG_THRESHOLD,
   HAND_SCROLL_THRESHOLD,
@@ -13,6 +13,7 @@ import { dataStore } from '../core/DataStore';
 import { describeStackDrop } from '../core/stackOutcomePreview';
 import GameCard, { boardDepthFromY } from '../objects/GameCard';
 import type { StackDropHint } from './StackDropHint';
+import { CARD_ICON_BG, CARD_INNER_ALPHA } from '../art/cardIconStyle';
 import { resolveCardIconKey } from '../art/resolveCardIconKey';
 import { TEX } from '../art/textureKeys';
 import type { CardDragSystem } from '../systems/CardDragSystem';
@@ -273,8 +274,7 @@ export default class HandBar extends Phaser.GameObjects.Container {
       const shell = this.scene.add.image(0, 0, TEX.CARD_SHELL_COMPACT);
       shell.setDisplaySize(w + 2, h + 2);
 
-      const color = Phaser.Display.Color.HexStringToColor(def.color ?? '#4a4540').color;
-      const inner = this.scene.add.rectangle(0, 0, w - 6, h - 8, color, 0.88);
+      const inner = this.scene.add.rectangle(0, 0, w - 6, h - 8, CARD_ICON_BG, CARD_INNER_ALPHA);
 
       const iconKey = this.resolveIconKey(def.id, def.artKey, def.icon);
       const icon = this.scene.add.image(0, -4, iconKey);
@@ -282,7 +282,7 @@ export default class HandBar extends Phaser.GameObjects.Container {
 
       const name = this.scene.add.text(0, h * 0.32, def.name, {
         fontSize: '7px',
-        color: '#e8e0d4',
+        color: '#000000',
         align: 'center',
         wordWrap: { width: w - 4 },
       });
@@ -557,9 +557,8 @@ export default class HandBar extends Phaser.GameObjects.Container {
       fadeOutGhost(this.scene, ghost);
       return;
     }
-    const metrics = resolveCardMetrics(def);
-    const hw = metrics.w / 2;
-    const hh = metrics.h / 2;
+    const hw = CARD_W / 2;
+    const hh = CARD_H / 2;
     if (
       dropX < pf.left + hw ||
       dropX > pf.right - hw ||

@@ -1,7 +1,12 @@
 import Phaser from 'phaser';
 import { resolveCardIconKey } from '../art/resolveCardIconKey';
+import { CARD_ICON_BG, resolveCardInnerAlpha } from '../art/cardIconStyle';
 import { TEX } from '../art/textureKeys';
-import { layoutCardContent, resolveCardMetrics, type CardMetrics } from '../config/cardLayout';
+import {
+  layoutCardContent,
+  resolveBoardCardMetrics,
+  type CardMetrics,
+} from '../config/cardLayout';
 import type { CardDefinition } from '../types/gameData';
 import { resolveWorldSprite } from '../art/WorldSpriteRegistry';
 
@@ -35,13 +40,13 @@ export default class GameCard extends Phaser.GameObjects.Container {
   constructor(scene: Phaser.Scene, x: number, y: number, definition: CardDefinition) {
     super(scene, x, y);
     this.definition = definition;
-    this.metrics = resolveCardMetrics(definition);
+    this.metrics = resolveBoardCardMetrics(definition);
 
     const { w, h, icon: iconSize } = this.metrics;
-    const shape = definition.shape ?? 'standard';
+    const shape = 'standard' as const;
     const layout = layoutCardContent(shape, this.metrics);
-    const color = Phaser.Display.Color.HexStringToColor(definition.color ?? '#4a4540').color;
-    const shellKey = shellTextureForShape(shape);
+    const color = CARD_ICON_BG;
+    const shellKey = TEX.CARD_SHELL;
 
     this.face = scene.add.container(0, 0);
 
@@ -55,7 +60,7 @@ export default class GameCard extends Phaser.GameObjects.Container {
       layout.inner.w,
       layout.inner.h,
       color,
-      0.88,
+      resolveCardInnerAlpha(definition.id),
     );
     this.inner.setStrokeStyle(1, 0x2a2620, 0.6);
 
@@ -63,40 +68,16 @@ export default class GameCard extends Phaser.GameObjects.Container {
     this.icon = scene.add.image(layout.icon.x, layout.icon.y, iconKey);
     this.icon.setDisplaySize(iconSize, iconSize);
 
-    const divider = scene.add.rectangle(
-      layout.divider.x,
-      layout.divider.y,
-      layout.divider.w,
-      1,
-      0x2a2620,
-      0.75,
-    );
-
-    const faceChildren: Phaser.GameObjects.GameObject[] = [this.shell, this.inner, this.icon, divider];
-
-    if (layout.nameplate) {
-      const plate = scene.add.rectangle(
-        layout.nameplate.x,
-        layout.nameplate.y,
-        layout.nameplate.w,
-        layout.nameplate.h,
-        0x1a1612,
-        0.55,
-      );
-      plate.setStrokeStyle(1, 0x2a2620, 0.4);
-      faceChildren.push(plate);
-    }
+    const faceChildren: Phaser.GameObjects.GameObject[] = [this.shell, this.inner, this.icon];
 
     this.label = scene.add.text(layout.label.x, layout.label.y, definition.name, {
       fontFamily: 'system-ui, sans-serif',
       fontSize: layout.label.fontSize,
-      color: '#e8e0d4',
+      color: '#000000',
       align: 'center',
-      stroke: '#1a1612',
-      strokeThickness: 1,
       wordWrap: { width: layout.label.maxWidth },
     });
-    this.label.setOrigin(0.5, shape === 'wide' ? 0.5 : 1);
+    this.label.setOrigin(0.5, 1);
 
     this.qtyBadge = scene.add.text(w / 2 - 6, -h / 2 + 5, '', {
       fontFamily: 'system-ui, sans-serif',
@@ -237,21 +218,6 @@ export default class GameCard extends Phaser.GameObjects.Container {
 
 export function boardDepthFromY(y: number): number {
   return 10 + Math.round(y);
-}
-
-function shellTextureForShape(shape: string): string {
-  switch (shape) {
-    case 'slim':
-      return TEX.CARD_SHELL_SLIM;
-    case 'wide':
-      return TEX.CARD_SHELL_WIDE;
-    case 'tile':
-      return TEX.CARD_SHELL_TILE;
-    case 'compact':
-      return TEX.CARD_SHELL_COMPACT;
-    default:
-      return TEX.CARD_SHELL;
-  }
 }
 
 function resolveIconKey(scene: Phaser.Scene, def: CardDefinition): string {

@@ -1,4 +1,4 @@
-import type { IconDrawCtx } from './cardIconDraw';
+import type { IconDrawCtx } from './cardIconTypes';
 
 function hex(color: number, alpha = 1): string {
   const r = (color >> 16) & 255;

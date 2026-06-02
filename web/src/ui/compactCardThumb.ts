@@ -3,6 +3,7 @@ import Phaser from 'phaser';
 import { CARD_SHAPES, resolveCardMetrics } from '../config/cardLayout';
 import { dataStore } from '../core/DataStore';
 import { resolveCardIconKey } from '../art/resolveCardIconKey';
+import { CARD_ICON_BG, CARD_INNER_ALPHA } from '../art/cardIconStyle';
 import { TEX } from '../art/textureKeys';
 import type { CardDefinition, CardShape } from '../types/gameData';
 
@@ -48,8 +49,7 @@ export function createCardThumb(
   const shell = scene.add.image(0, 0, shellKey);
   shell.setDisplaySize(w + 2, h + 2);
 
-  const color = Phaser.Display.Color.HexStringToColor(def.color ?? '#4a4540').color;
-  const inner = scene.add.rectangle(0, 0, w - 8, h - 12, color, 0.9);
+  const inner = scene.add.rectangle(0, 0, w - 8, h - 12, CARD_ICON_BG, CARD_INNER_ALPHA);
 
   const iconKey = resolveIconKey(scene, def);
   const icon = scene.add.image(0, -h * 0.08, iconKey);
@@ -59,7 +59,7 @@ export function createCardThumb(
   const namePx = Math.max(7, Math.round(8 * (scale / 0.82)));
   const name = scene.add.text(0, h * 0.24, title, {
     fontSize: shape === 'slim' ? `${Math.max(6, namePx - 1)}px` : `${namePx}px`,
-    color: '#e8e0d4',
+    color: '#000000',
     align: 'center',
     wordWrap: { width: w - 8 },
   });

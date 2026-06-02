@@ -1,5 +1,5 @@
 import type Phaser from 'phaser';
-import type { IconDrawCtx } from './cardIconDraw';
+import type { IconDrawCtx } from './cardIconTypes';
 
 export function phaserIconCtx(g: Phaser.GameObjects.Graphics): IconDrawCtx {
   return {

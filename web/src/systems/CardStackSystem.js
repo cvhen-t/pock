@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { CARD_DROP_RADIUS, resolveCardMetrics, STACK_HIT_RADIUS, } from '../config/cardLayout';
+import { CARD_DROP_RADIUS, STACK_HIT_RADIUS, STACK_SNAP, } from '../config/cardLayout';
 import { isQuantityMergePair, isQuantityStackable } from '../core/cardQuantity';
 import GameCard, { boardDepthFromY } from '../objects/GameCard';
 export { STACK_SNAP } from '../config/cardLayout';
@@ -274,7 +274,7 @@ export class CardStackSystem {
     }
     layoutStack(stack) {
         stack.base.setDepth(boardDepthFromY(stack.base.y));
-        const snap = resolveCardMetrics(stack.base.definition).stackSnap;
+        const snap = STACK_SNAP;
         let offsetY = -snap;
         for (let i = 0; i < stack.members.length; i++) {
             const member = stack.members[i];

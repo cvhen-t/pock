@@ -40,16 +40,15 @@ export function layoutCardContent(shape, m) {
             fontSize: shape === 'compact' || shape === 'slim' ? '8px' : '9px',
             maxWidth: w - 8,
         },
-        nameplate: {
-            x: 0,
-            y: labelBottom - labelBand / 2,
-            w: w - 6,
-            h: labelBand,
-        },
+        nameplate: null,
         inner: { x: 0, y: 0, w: w - 8, h: h - pad * 2 },
     };
 }
 export function resolveCardMetrics(def) {
     const shape = def.shape ?? 'standard';
     return CARD_SHAPES[shape] ?? CARD_SHAPES.standard;
+}
+/** Playfield cards always render as standard portrait (ignores def.shape). */
+export function resolveBoardCardMetrics(_def) {
+    return CARD_SHAPES.standard;
 }

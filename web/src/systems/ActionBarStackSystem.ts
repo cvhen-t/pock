@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 
-import { CARD_DROP_RADIUS, resolveCardMetrics } from '../config/cardLayout';
+import { CARD_DROP_RADIUS, STACK_SNAP } from '../config/cardLayout';
 import type GameCard from '../objects/GameCard';
 import type { CardStackSystem } from './CardStackSystem';
 
@@ -96,7 +96,7 @@ export class ActionBarStackSystem {
   }
 
   layoutStack(stack: BlueprintStack): void {
-    const snap = resolveCardMetrics(stack.base.definition).stackSnap * 0.55;
+    const snap = STACK_SNAP * 0.55;
     let offsetY = -snap;
     for (let i = 0; i < stack.members.length; i++) {
       const member = stack.members[i]!;

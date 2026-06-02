@@ -15,7 +15,7 @@ import { applyWhiteOutline } from '../src/art/cardIconOutline';
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const cardsDir = join(root, 'public', 'data', 'cards');
 const outDir = join(root, 'public', 'assets', 'cards');
-const SIZE = 128;
+const SIZE = 160;
 const OUTLINE_RADIUS = 3;
 
 function collectCardIds(): string[] {
@@ -35,7 +35,12 @@ function collectCardIds(): string[] {
 
 mkdirSync(outDir, { recursive: true });
 
-const ids = collectCardIds();
+const onlyId = process.argv[2];
+const ids = onlyId ? [onlyId] : collectCardIds();
+if (onlyId && !collectCardIds().includes(onlyId)) {
+  console.error(`Unknown card id: ${onlyId}`);
+  process.exit(1);
+}
 for (const id of ids) {
   const canvas = createCanvas(SIZE, SIZE);
   const scratch = createCanvas(SIZE, SIZE);
