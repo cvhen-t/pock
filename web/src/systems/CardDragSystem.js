@@ -149,8 +149,10 @@ export class CardDragSystem {
             return;
         if (pointer.button !== 0 && pointer.button !== 2)
             return;
-        if (this.blocksScreenPoint?.(pointer.x, pointer.y))
+        if (this.blocksScreenPoint?.(pointer.x, pointer.y)) {
+            this.pending = null;
             return;
+        }
         if (this.active) {
             if (this.scene.input.activePointer.isDown)
                 return;

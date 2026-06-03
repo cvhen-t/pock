@@ -11,7 +11,7 @@ export const SORT_MODES = [
     { id: 'sell', label: '卖出', targetRole: 'shop' },
     { id: 'buy', label: '买入', targetRole: 'shop' },
     { id: 'store', label: '存入仓库', targetRole: 'warehouse' },
-    { id: 'feed', label: '供料工房', targetRole: 'logistics_facility' },
+    { id: 'feed', label: '供料设施', targetRole: 'logistics_facility' },
 ];
 export function getSortMode(card) {
     return card.getData(SORT_MODE_KEY) ?? 'feed';

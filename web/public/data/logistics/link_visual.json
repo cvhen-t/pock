@@ -7,6 +7,8 @@
     "logistics_sorter→logistics_facility": { "color": "#9a7ab8", "width": 2 },
     "logistics_sorter→logistics_depot": { "color": "#b89458", "width": 2 },
     "logistics_depot→logistics_facility": { "color": "#9a7ab8", "width": 2 },
+    "warehouse→logistics_facility": { "color": "#8a9a7a", "width": 2 },
+    "warehouse→auto_relay": { "color": "#7a9a88", "width": 2 },
     "logistics_facility→auto_relay": { "color": "#a87ab8", "width": 2 }
   },
   "activeEdgeColor": "#8a9a7a",
@@ -28,6 +30,6 @@
     "logistics_depot": "投放仓储",
     "shop": "商店",
     "warehouse": "储物棚",
-    "logistics_facility": "工房"
+    "logistics_facility": "生产设施"
   }
 }

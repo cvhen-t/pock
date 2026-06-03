@@ -12,6 +12,8 @@ export function getLogisticsRole(tags = []) {
         if (tags.includes(role))
             return role;
     }
+    if (tags.includes('craft_station'))
+        return 'logistics_facility';
     return null;
 }
 export function parseLinkRules(raw) {

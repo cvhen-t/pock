@@ -2,10 +2,10 @@ import Phaser from 'phaser';
 import GameCard from '../objects/GameCard';
 import { dataStore } from '../core/DataStore';
 import { parseAutomationConfig, REGISTRY_AUTOMATION_CONFIG } from '../core/automationConfig';
-import { buildAutomationGraph, findDevice, findSortHandsViaGraph, getLinkedDepotForSortHand, getLinkedFacilityForSortHand, getRelayForFacility, getSortHandDownstream, isActiveCollectorChain, isActiveFacilityRelayChain, loadLinkRulesFromRegistry, REGISTRY_AUTOMATION_GRAPH, } from '../core/automationNetwork';
+import { buildAutomationGraph, findDevice, findSortHandsViaGraph, getLinkedDepotForSortHand, getLinkedFacilityForSortHand, getRelayForFacility, getSortHandDownstream, getWarehousesLinkedToFacility, isActiveCollectorChain, isActiveFacilityRelayChain, isActiveWarehouseRelayChain, loadLinkRulesFromRegistry, REGISTRY_AUTOMATION_GRAPH, } from '../core/automationNetwork';
 import { deliverPacketToDepot, deliverToCraftStation, deliverToPlayerWarehouse, stationNeedsCard, } from '../core/automationDelivery';
 import { getModeTargetRole, getSortFilterCardId, getSortHandWeight, getSortMode, packetMatchesSortHand, rotateWeightedTier, sortWeightsDescending, } from '../core/sortHandRules';
-import { pullFromAutoDepot } from '../core/storageInventory';
+import { getWarehouseInventory, pullFromAutoDepot, pullFromWarehouse } from '../core/storageInventory';
 const LOOT_DATA_KEY = 'lootDrop';
 export class AutomationSystem {
     scene;
@@ -18,6 +18,7 @@ export class AutomationSystem {
     config;
     chains = [];
     facilityChains = [];
+    warehouseChains = [];
     rebuildQueued = false;
     /** relayId + weight → round-robin cursor */
     relayWeightCursors = new Map();
@@ -98,6 +99,24 @@ export class AutomationSystem {
             });
         }
         this.facilityChains = nextFacilityChains;
+        const nextWarehouseChains = [];
+        for (const dev of graph.devices.filter((d) => d.role === 'warehouse')) {
+            if (!isActiveWarehouseRelayChain(graph, dev))
+                continue;
+            const relay = graph.edges.find((e) => e.from.id === dev.id && e.toRole === 'auto_relay')?.to;
+            if (!relay)
+                continue;
+            const existing = this.warehouseChains.find((c) => c.warehouseCard === dev.card);
+            nextWarehouseChains.push({
+                warehouseCard: dev.card,
+                relayCard: relay.card,
+                packets: existing?.packets.map((p) => ({
+                    ...p,
+                    atRelay: p.atRelay ?? relay.card,
+                })) ?? [],
+            });
+        }
+        this.warehouseChains = nextWarehouseChains;
     }
     onCraftOutput(payload) {
         const graph = this.scene.registry.get(REGISTRY_AUTOMATION_GRAPH);
@@ -138,10 +157,14 @@ export class AutomationSystem {
             this.runCollector(chain);
             chain.packets = this.advanceRelayPackets(chain.packets, graph);
             this.runBuyTick(chain, graph);
-            this.runDepotFeed(chain, graph);
+            this.runStorageFeed(chain, graph);
         }
         for (const fChain of this.facilityChains) {
             fChain.packets = this.advanceRelayPackets(fChain.packets, graph);
+        }
+        for (const wChain of this.warehouseChains) {
+            this.runWarehouseExport(wChain, graph);
+            wChain.packets = this.advanceRelayPackets(wChain.packets, graph);
         }
     }
     getCollectorRadius(collectorCard) {
@@ -301,6 +324,16 @@ export class AutomationSystem {
             if (depot && target === depot) {
                 return deliverPacketToDepot(ctx, depot, packet);
             }
+            if (packet.sourceWarehouse) {
+                const recipes = dataStore.getRecipes().filter((r) => r.stationId);
+                if (!stationNeedsCard(target, packet.cardId, recipes, this.getDayIndex())) {
+                    return false;
+                }
+                if (!pullFromWarehouse(this.stacks, packet.sourceWarehouse, packet.cardId, packet.qty)) {
+                    return false;
+                }
+                return deliverToCraftStation(this.stacks, this.spawner, this.drag, target, packet.cardId, packet.qty);
+            }
             return deliverToCraftStation(this.stacks, this.spawner, this.drag, target, packet.cardId, packet.qty);
         }
         return false;
@@ -332,30 +365,73 @@ export class AutomationSystem {
             return true;
         });
     }
-    /** 分拣手 → 仓储 → 工房 缓冲供料 */
-    runDepotFeed(chain, graph) {
+    /** 分拣手 → 投放仓储 / 储物棚 → 生产设施 缓冲供料 */
+    runStorageFeed(chain, graph) {
         const relayDev = findDevice(graph, chain.relayCard);
         if (!relayDev)
             return;
         const feedHands = this.sortHandsOnRelay(graph, chain.relayCard).filter((sh) => getSortMode(sh) === 'feed');
+        const recipes = dataStore.getRecipes().filter((r) => r.stationId);
         this.forSortHandsByWeight(relayDev.id, feedHands, (sortHand) => {
             const filterId = getSortFilterCardId(sortHand);
             if (!filterId)
                 return false;
-            const depot = getLinkedDepotForSortHand(graph, sortHand);
             const facility = getLinkedFacilityForSortHand(graph, sortHand);
-            if (!depot || !facility)
+            if (!facility)
                 return false;
-            const depotFeedsFacility = graph.edges.some((e) => e.from.card === depot && e.to.card === facility && e.toRole === 'logistics_facility');
-            if (!depotFeedsFacility)
-                return false;
-            const recipes = dataStore.getRecipes().filter((r) => r.stationId);
             if (!stationNeedsCard(facility, filterId, recipes, this.getDayIndex()))
                 return false;
-            if (!pullFromAutoDepot(this.stacks, depot, filterId, 1))
-                return false;
-            deliverToCraftStation(this.stacks, this.spawner, this.drag, facility, filterId, 1);
-            return true;
+            const depot = getLinkedDepotForSortHand(graph, sortHand);
+            const depotFeedsFacility = depot &&
+                graph.edges.some((e) => e.from.card === depot && e.to.card === facility && e.toRole === 'logistics_facility');
+            if (depotFeedsFacility) {
+                if (!pullFromAutoDepot(this.stacks, depot, filterId, 1))
+                    return false;
+                deliverToCraftStation(this.stacks, this.spawner, this.drag, facility, filterId, 1);
+                return true;
+            }
+            for (const warehouse of getWarehousesLinkedToFacility(graph, facility)) {
+                if (!pullFromWarehouse(this.stacks, warehouse, filterId, 1))
+                    continue;
+                deliverToCraftStation(this.stacks, this.spawner, this.drag, facility, filterId, 1);
+                return true;
+            }
+            return false;
         });
+    }
+    /** 储物棚 → 传送 → 分拣手：按筛选向中继投放库存包裹 */
+    runWarehouseExport(wChain, graph) {
+        if (wChain.packets.length >= this.config.maxPacketsPerChain)
+            return;
+        const stack = this.stacks.getStackAt(wChain.warehouseCard);
+        if (!stack)
+            return;
+        const inventory = getWarehouseInventory(stack);
+        const relayDev = findDevice(graph, wChain.relayCard);
+        if (!relayDev)
+            return;
+        const feedHands = this.sortHandsOnRelay(graph, wChain.relayCard).filter((sh) => getSortMode(sh) === 'feed');
+        const recipes = dataStore.getRecipes().filter((r) => r.stationId);
+        for (const sortHand of feedHands) {
+            const filterId = getSortFilterCardId(sortHand);
+            if (!filterId)
+                continue;
+            const facility = getLinkedFacilityForSortHand(graph, sortHand);
+            if (!facility)
+                continue;
+            if (!stationNeedsCard(facility, filterId, recipes, this.getDayIndex()))
+                continue;
+            const stocked = inventory.find((e) => e.cardId === filterId && e.qty > 0);
+            if (!stocked)
+                continue;
+            wChain.packets.push({
+                cardId: filterId,
+                qty: 1,
+                hopTimer: 0,
+                atRelay: wChain.relayCard,
+                sourceWarehouse: wChain.warehouseCard,
+            });
+            return;
+        }
     }
 }

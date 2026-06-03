@@ -18,7 +18,7 @@
       "name": "废土冶炼台",
       "deck": "facility",
       "shape": "tile",
-      "tags": ["building", "craft_station", "facility"],
+      "tags": ["building", "craft_station", "facility", "logistics_facility"],
       "color": "#4a4038",
       "effects": [{ "type": "craft_station", "stationId": "smelter" }]
     },
@@ -27,7 +27,7 @@
       "name": "拼凑厨房",
       "deck": "facility",
       "shape": "tile",
-      "tags": ["building", "craft_station", "facility"],
+      "tags": ["building", "craft_station", "facility", "logistics_facility"],
       "color": "#5c4a32",
       "effects": [{ "type": "craft_station", "stationId": "kitchen" }]
     },
@@ -36,7 +36,7 @@
       "name": "废土设计院",
       "deck": "facility",
       "shape": "tile",
-      "tags": ["building", "craft_station", "facility"],
+      "tags": ["building", "craft_station", "facility", "logistics_facility"],
       "color": "#4a4840",
       "effects": [{ "type": "craft_station", "stationId": "design_bureau" }]
     },
@@ -45,7 +45,7 @@
       "name": "玻璃温室",
       "deck": "facility",
       "shape": "tile",
-      "tags": ["building", "craft_station", "facility"],
+      "tags": ["building", "craft_station", "facility", "logistics_facility"],
       "color": "#4a5a48",
       "effects": [{ "type": "craft_station", "stationId": "greenhouse" }]
     },
@@ -54,7 +54,7 @@
       "name": "渗滤井",
       "deck": "facility",
       "shape": "tile",
-      "tags": ["building", "craft_station", "facility"],
+      "tags": ["building", "craft_station", "facility", "logistics_facility"],
       "color": "#3a4548",
       "effects": [{ "type": "craft_station", "stationId": "well" }]
     },

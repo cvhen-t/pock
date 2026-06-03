@@ -20,6 +20,7 @@ export function getLogisticsRole(tags: string[] = []): string | null {
   for (const role of ROLE_PRIORITY) {
     if (tags.includes(role)) return role;
   }
+  if (tags.includes('craft_station')) return 'logistics_facility';
   return null;
 }
 

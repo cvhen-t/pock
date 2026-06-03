@@ -562,7 +562,7 @@ export class SortHandPanel extends Phaser.GameObjects.Container {
           key: '__hint__',
           cardId: null,
           title: '未连接',
-          subtitle: '靠近商店、工房或储物棚后重试',
+          subtitle: '靠近商店、生产设施或储物棚后重试',
           filterCardId: filterId,
         },
       ];
@@ -605,7 +605,7 @@ export class SortHandPanel extends Phaser.GameObjects.Container {
             key: '__hint__',
             cardId: null,
             title: '无法供料',
-            subtitle: '连接工房，并确保上游有投放仓储',
+            subtitle: '连接生产设施，并确保上游有投放仓储',
             filterCardId: filterId,
           },
         ];

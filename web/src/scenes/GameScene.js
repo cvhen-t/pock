@@ -280,14 +280,30 @@ export default class GameScene extends Phaser.Scene {
         if (this.backpackBar.isDraggingFromHand() || this.actionBar.isDraggingFromBar()) {
             return false;
         }
+        if (this.sortHandPanel?.containsPanelPoint(sx, sy) === true) {
+            const active = this.sortHandPanel.getActiveCard();
+            if (active && this.isScreenPointOnCard(sx, sy, active)) {
+                return false;
+            }
+            return true;
+        }
         return (this.layout.topHud.contains(sx, sy) ||
             this.layout.stackLane.contains(sx, sy) ||
             this.layout.backpackBar.contains(sx, sy) ||
             this.layout.actionBar.contains(sx, sy) ||
             this.tradePanel?.containsPanelPoint(sx, sy) === true ||
             this.storagePanel?.containsPanelPoint(sx, sy) === true ||
-            this.guidePanel?.containsPanelPoint(sx, sy) === true ||
-            this.sortHandPanel?.containsPanelPoint(sx, sy) === true);
+            this.guidePanel?.containsPanelPoint(sx, sy) === true);
+    }
+    isScreenPointOnCard(sx, sy, card) {
+        const out = new Phaser.Math.Vector2();
+        this.cameras.main.getWorldPoint(sx, sy, out);
+        const hw = card.cardWidth / 2;
+        const hh = card.cardHeight / 2;
+        return (out.x >= card.x - hw &&
+            out.x <= card.x + hw &&
+            out.y >= card.y - hh &&
+            out.y <= card.y + hh);
     }
     computeCurrentLayout() {
         const { width, height } = this.scale;

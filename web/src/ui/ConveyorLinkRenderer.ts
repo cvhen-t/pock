@@ -4,6 +4,7 @@ import {
   EVENT_AUTOMATION_GRAPH_UPDATED,
   isActiveCollectorChain,
   isActiveFacilityRelayChain,
+  isActiveWarehouseRelayChain,
   REGISTRY_AUTOMATION_GRAPH,
   type AutomationGraph,
 } from '../core/automationNetwork';
@@ -46,7 +47,9 @@ export class ConveyorLinkRenderer {
           ? isActiveCollectorChain(graph, edge.from)
           : edge.from.role === 'logistics_facility' && edge.toRole === 'auto_relay'
             ? isActiveFacilityRelayChain(graph, edge.from)
-            : true;
+            : edge.from.role === 'warehouse' && edge.toRole === 'auto_relay'
+              ? isActiveWarehouseRelayChain(graph, edge.from)
+              : true;
       this.drawEdge(edge.from.card, edge.to.card, color, width, active ? 0.85 : visual.inactiveAlpha);
     }
   }

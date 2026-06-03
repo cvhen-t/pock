@@ -1,23 +1,28 @@
 import Phaser from 'phaser';
 import { REGISTRY_AUTOMATION_GRAPH } from '../core/automationNetwork';
 import { dataStore } from '../core/DataStore';
-import { SORT_MODES, SORT_WEIGHT_MAX, SORT_WEIGHT_MIN, buildStoreGridEntries, clearSortFilterCardId, deriveAvailableModes, firstInputCardId, formatRecipeInputs, formatSortHandSummary, getDownstreamTargetName, getSortFilterCardId, getSortHandWeight, getSortMode, listBuyCandidates, listFeedRecipesForSortHand, listSellableCardIds, resolveDefaultSortMode, setSortFilterCardId, setSortHandWeight, setSortMode, } from '../core/sortHandRules';
+import { SORT_MODES, buildStoreGridEntries, clearSortFilterCardId, clampSortHandWeight, deriveAvailableModes, firstInputCardId, formatRecipeInputs, formatSortHandSummary, getSortFilterCardId, getSortHandWeight, getSortMode, listBuyCandidates, listFeedRecipesForSortHand, listSellableCardIds, resolveDefaultSortMode, setSortFilterCardId, setSortHandWeight, setSortMode, } from '../core/sortHandRules';
 import { createCardThumb } from './compactCardThumb';
 const PANEL_DEPTH = 2400;
 const PANEL_W = 500;
-const PANEL_H = 430;
+const PANEL_H = 400;
 const HEADER_TOP = -PANEL_H / 2;
 const TITLE_BAR_H = 32;
-const GRID_COLS = 5;
+const GRID_COLS = 6;
 const SHELF_GAP_MIN = 4;
 const SHELF_GAP_MAX = 28;
-const THUMB_SCALE = 0.82;
-const SHELF_TOP = 118;
-const SHELF_BOTTOM_PAD = 52;
+const SHOP_THUMB_SCALE = 0.88;
+const SHELF_TOP = 70;
+const SHELF_BOTTOM_PAD = 4;
+const SHELF_SCROLL_END_PAD = 4;
 const SHELF_VIEW_H = PANEL_H - SHELF_TOP - SHELF_BOTTOM_PAD;
 const SHELF_PAD_X = 12;
 const SHELF_CLIP_W = PANEL_W - SHELF_PAD_X * 2;
 const SHELF_CONTENT_PAD = 2;
+const PANEL_STROKE = 0x8b6914;
+const TITLE_COLOR = '#c9b896';
+const STATUS_COLOR = '#f0d878';
+const SELECT_STROKE = 0x8b6914;
 export class SortHandPanel extends Phaser.GameObjects.Container {
     stacks;
     shopCatalog;
@@ -25,17 +30,15 @@ export class SortHandPanel extends Phaser.GameObjects.Container {
     panelBg;
     titleBar;
     titleText;
-    summaryText;
-    hintText;
+    statusText;
     closeBtn;
-    doneBtn;
+    weightStepper;
+    weightValueText;
     tabRow;
     tabBarShield;
-    advancedRow;
-    advancedToggle;
-    weightRow;
     showAllBtn;
     gridShelf;
+    hoverDetailHint;
     shelfBottomCover;
     shelfMask;
     shelfMaxThumbH = 112;
@@ -52,11 +55,9 @@ export class SortHandPanel extends Phaser.GameObjects.Container {
     activeCard = null;
     availableModes = [];
     activeMode = 'feed';
-    advancedOpen = false;
     showAllStorable = false;
     screenW = 800;
     screenH = 600;
-    positioned = false;
     tabButtons = new Map();
     constructor(scene, stacks, shopCatalog, onClose) {
         super(scene, 0, 0);
@@ -75,19 +76,21 @@ export class SortHandPanel extends Phaser.GameObjects.Container {
         super.destroy(fromScene);
     }
     open(card) {
-        if (!this.positioned) {
-            this.setPosition(this.screenW / 2, this.screenH * 0.38);
-            this.positioned = true;
+        if (this.panelOpen && this.activeCard === card) {
+            this.close();
+            return;
         }
         this.activeCard = card;
-        this.advancedOpen = false;
         this.showAllStorable = false;
         this.shelfScroll = 0;
+        this.positionNearCard(card);
         const graph = this.scene.registry.get(REGISTRY_AUTOMATION_GRAPH);
         this.availableModes = deriveAvailableModes(graph, card);
         const resolved = resolveDefaultSortMode(this.availableModes, getSortMode(card));
-        if (resolved !== getSortMode(card))
+        if (resolved !== getSortMode(card)) {
             setSortMode(card, resolved);
+            this.scene.events.emit('sort-hand-config-changed', { card });
+        }
         this.activeMode = getSortMode(card);
         this.titleText.setText(card.definition.name);
         this.refreshChrome();
@@ -101,11 +104,15 @@ export class SortHandPanel extends Phaser.GameObjects.Container {
         this.panelDrag = null;
         this.panelOpen = false;
         this.activeCard = null;
+        this.hideHoverDetail();
         this.setVisible(false);
         this.onClose();
     }
     isOpen() {
         return this.panelOpen;
+    }
+    getActiveCard() {
+        return this.activeCard;
     }
     containsPanelPoint(sx, sy) {
         if (!this.panelOpen)
@@ -115,28 +122,107 @@ export class SortHandPanel extends Phaser.GameObjects.Container {
     applyLayout(_centerX, _centerY, width, height) {
         this.screenW = width;
         this.screenH = height;
-        if (this.panelOpen)
+        if (this.panelOpen) {
+            if (this.activeCard)
+                this.positionNearCard(this.activeCard);
+            const halfW = PANEL_W / 2;
+            const halfH = PANEL_H / 2;
+            const pad = 8;
+            this.x = Phaser.Math.Clamp(this.x, halfW + pad, width - halfW - pad);
+            this.y = Phaser.Math.Clamp(this.y, halfH + pad + 40, height - halfH - pad);
             this.syncPanelBounds();
+        }
+    }
+    /** 面板锚定在卡牌旁，避免遮挡导致连续点击失效 */
+    positionNearCard(card) {
+        const halfW = PANEL_W / 2;
+        const halfH = PANEL_H / 2;
+        const pad = 8;
+        const gap = 14;
+        const cardHw = card.cardWidth / 2;
+        const cardHh = card.cardHeight / 2;
+        const candidates = [
+            { x: card.x, y: card.y - cardHh - halfH - gap },
+            { x: card.x, y: card.y + cardHh + halfH + gap },
+            { x: card.x + cardHw + halfW + gap, y: card.y },
+            { x: card.x - cardHw - halfW - gap, y: card.y },
+            { x: this.screenW / 2, y: this.screenH * 0.32 },
+        ];
+        for (const candidate of candidates) {
+            const px = Phaser.Math.Clamp(candidate.x, halfW + pad, this.screenW - halfW - pad);
+            const py = Phaser.Math.Clamp(candidate.y, halfH + pad + 40, this.screenH - halfH - pad);
+            if (!this.panelOverlapsCard(card, px, py)) {
+                this.setPosition(px, py);
+                return;
+            }
+        }
+        this.setPosition(Phaser.Math.Clamp(this.screenW / 2, halfW + pad, this.screenW - halfW - pad), Phaser.Math.Clamp(this.screenH * 0.32, halfH + pad + 40, this.screenH - halfH - pad));
+    }
+    panelOverlapsCard(card, px, py) {
+        const panel = new Phaser.Geom.Rectangle(px - PANEL_W / 2, py - PANEL_H / 2, PANEL_W, PANEL_H);
+        const cardRect = new Phaser.Geom.Rectangle(card.x - card.cardWidth / 2, card.y - card.cardHeight / 2, card.cardWidth, card.cardHeight);
+        return Phaser.Geom.Intersects.RectangleToRectangle(panel, cardRect);
     }
     buildChrome() {
         const scene = this.scene;
         this.panelBg = scene.add
             .rectangle(0, 0, PANEL_W, PANEL_H, 0x2a2620, 0.96)
             .setOrigin(0.5)
-            .setStrokeStyle(2, 0x6a6560, 0.9);
+            .setStrokeStyle(2, PANEL_STROKE, 0.9);
         this.titleBar = scene.add
             .rectangle(0, HEADER_TOP + TITLE_BAR_H / 2, PANEL_W - 4, TITLE_BAR_H, 0x3a3228, 0.95)
             .setOrigin(0.5)
-            .setInteractive({ useHandCursor: true });
+            .setInteractive({ draggable: false, useHandCursor: true });
         this.titleText = scene.add.text(-PANEL_W / 2 + 16, HEADER_TOP + 8, '分拣手', {
             fontSize: '16px',
-            color: '#c9c0b0',
+            color: TITLE_COLOR,
         });
         this.titleText.setOrigin(0, 0);
+        this.statusText = scene.add.text(-24, HEADER_TOP + 10, '', {
+            fontSize: '13px',
+            color: STATUS_COLOR,
+        });
+        this.statusText.setOrigin(0.5, 0);
+        this.weightStepper = scene.add.container(PANEL_W / 2 - 58, HEADER_TOP + 16);
+        const weightLabel = scene.add.text(-22, 0, '优先级', {
+            fontSize: '9px',
+            color: '#8a8070',
+        });
+        weightLabel.setOrigin(1, 0.5);
+        const stepBtnStyle = {
+            fontSize: '10px',
+            color: TITLE_COLOR,
+            backgroundColor: '#4a4030',
+            padding: { x: 5, y: 1 },
+        };
+        this.weightValueText = scene.add.text(0, 0, '1', {
+            fontSize: '13px',
+            color: STATUS_COLOR,
+            backgroundColor: '#3a3228',
+            padding: { x: 6, y: 2 },
+        });
+        this.weightValueText.setOrigin(0.5);
+        const weightUpBtn = scene.add
+            .text(0, -12, '▲', stepBtnStyle)
+            .setOrigin(0.5)
+            .setInteractive({ useHandCursor: true });
+        weightUpBtn.on('pointerdown', (p) => {
+            p.event.stopPropagation();
+            this.bumpWeight(1);
+        });
+        const weightDownBtn = scene.add
+            .text(0, 12, '▼', stepBtnStyle)
+            .setOrigin(0.5)
+            .setInteractive({ useHandCursor: true });
+        weightDownBtn.on('pointerdown', (p) => {
+            p.event.stopPropagation();
+            this.bumpWeight(-1);
+        });
+        this.weightStepper.add([weightLabel, weightUpBtn, this.weightValueText, weightDownBtn]);
         this.closeBtn = scene.add
             .text(PANEL_W / 2 - 24, HEADER_TOP + 12, '×', {
             fontSize: '22px',
-            color: '#c9c0b0',
+            color: TITLE_COLOR,
             backgroundColor: '#4a4030',
             padding: { x: 8, y: 2 },
         })
@@ -146,43 +232,17 @@ export class SortHandPanel extends Phaser.GameObjects.Container {
             p.event.stopPropagation();
             this.close();
         });
-        this.summaryText = scene.add.text(0, HEADER_TOP + 40, '', {
-            fontSize: '12px',
-            color: '#a0b090',
-        });
-        this.summaryText.setOrigin(0.5, 0);
-        this.tabRow = scene.add.container(0, HEADER_TOP + 58);
+        this.tabRow = scene.add.container(0, HEADER_TOP + 42);
         this.tabBarShield = scene.add
-            .rectangle(0, HEADER_TOP + 58, PANEL_W - 24, 26, 0x2a2620, 0.01)
+            .rectangle(0, HEADER_TOP + 62, PANEL_W - 20, 44, 0x000000, 0)
             .setInteractive({ useHandCursor: false });
         this.tabBarShield.on('pointerdown', (p) => p.event.stopPropagation());
-        this.hintText = scene.add.text(0, HEADER_TOP + 88, '点击选择 · 滚轮浏览', {
+        this.showAllBtn = scene.add
+            .text(PANEL_W / 2 - 14, HEADER_TOP + 66, '显示全部', {
             fontSize: '10px',
             color: '#8a8070',
-        });
-        this.hintText.setOrigin(0.5, 0);
-        this.advancedToggle = scene.add
-            .text(-PANEL_W / 2 + 16, PANEL_H / 2 - 40, '高级 ▼', {
-            fontSize: '11px',
-            color: '#8a8070',
             backgroundColor: '#2a2620',
-            padding: { x: 6, y: 2 },
-        })
-            .setOrigin(0, 0.5)
-            .setInteractive({ useHandCursor: true });
-        this.advancedToggle.on('pointerdown', (p) => {
-            p.event.stopPropagation();
-            this.advancedOpen = !this.advancedOpen;
-            this.refreshAdvanced();
-        });
-        this.advancedRow = scene.add.container(0, PANEL_H / 2 - 40);
-        this.weightRow = scene.add.container(-PANEL_W / 2 + 80, 0);
-        this.showAllBtn = scene.add
-            .text(PANEL_W / 2 - 16, PANEL_H / 2 - 40, '显示全部', {
-            fontSize: '11px',
-            color: '#8a8070',
-            backgroundColor: '#2a2620',
-            padding: { x: 6, y: 2 },
+            padding: { x: 4, y: 1 },
         })
             .setOrigin(1, 0.5)
             .setInteractive({ useHandCursor: true });
@@ -190,19 +250,6 @@ export class SortHandPanel extends Phaser.GameObjects.Container {
             p.event.stopPropagation();
             this.showAllStorable = true;
             this.buildGrid();
-        });
-        this.doneBtn = scene.add
-            .text(0, PANEL_H / 2 - 14, '完成', {
-            fontSize: '13px',
-            color: '#f0e8d8',
-            backgroundColor: '#5c4a32',
-            padding: { x: 18, y: 6 },
-        })
-            .setOrigin(0.5)
-            .setInteractive({ useHandCursor: true });
-        this.doneBtn.on('pointerdown', (p) => {
-            p.event.stopPropagation();
-            this.close();
         });
         const shelfViewTop = this.getShelfViewTop();
         this.gridShelf = scene.add.container(0, shelfViewTop);
@@ -217,8 +264,8 @@ export class SortHandPanel extends Phaser.GameObjects.Container {
         this.shelfBottomCover = scene.add
             .rectangle(0, shelfBottom + bottomCoverH / 2, PANEL_W - 4, bottomCoverH, 0x2a2620, 1)
             .setInteractive({ useHandCursor: false });
+        this.shelfBottomCover.setVisible(bottomCoverH > 0);
         this.shelfBottomCover.on('pointerdown', (p) => p.event.stopPropagation());
-        this.advancedRow.add(this.weightRow);
         this.add([
             this.panelBg,
             this.gridShelf,
@@ -226,14 +273,11 @@ export class SortHandPanel extends Phaser.GameObjects.Container {
             this.tabBarShield,
             this.titleBar,
             this.titleText,
+            this.statusText,
+            this.weightStepper,
             this.closeBtn,
-            this.summaryText,
             this.tabRow,
-            this.hintText,
-            this.advancedToggle,
-            this.advancedRow,
             this.showAllBtn,
-            this.doneBtn,
         ]);
         this.titleBar.on('pointerdown', (p) => {
             p.event.stopPropagation();
@@ -289,6 +333,7 @@ export class SortHandPanel extends Phaser.GameObjects.Container {
         const p = this.scene.input.activePointer;
         if (!this.shelfViewBounds.contains(p.x, p.y))
             return;
+        this.hideHoverDetail();
         this.shelfScroll = Phaser.Math.Clamp(this.shelfScroll + deltaY * 0.35, 0, this.shelfMaxScroll);
         this.populateGrid();
     }
@@ -302,13 +347,10 @@ export class SortHandPanel extends Phaser.GameObjects.Container {
         if (!this.activeCard)
             return;
         const graph = this.getGraph();
-        const modeLabel = SORT_MODES.find((m) => m.id === this.activeMode)?.label ?? '';
-        const targetName = getDownstreamTargetName(graph, this.activeCard, this.activeMode);
-        const suffix = targetName ? ` → ${targetName}` : ' · 待连接';
-        this.summaryText.setText(formatSortHandSummary(this.activeCard, graph));
-        this.titleText.setText(`${this.activeCard.definition.name} · ${modeLabel}${suffix}`);
+        this.titleText.setText(this.activeCard.definition.name);
+        this.statusText.setText(formatSortHandSummary(this.activeCard, graph));
+        this.refreshWeightStepper();
         this.buildModeTabs();
-        this.refreshAdvanced();
         this.showAllBtn.setVisible(this.activeMode === 'store' && !this.showAllStorable);
         this.buildGrid();
         this.bringChromeToFront();
@@ -359,34 +401,22 @@ export class SortHandPanel extends Phaser.GameObjects.Container {
             x += tab.width + tabGap;
         }
     }
-    refreshAdvanced() {
-        this.advancedToggle.setText(this.advancedOpen ? '高级 ▲' : '高级 ▼');
-        this.weightRow.removeAll(true);
-        this.advancedRow.setVisible(this.advancedOpen);
-        if (!this.advancedOpen || !this.activeCard)
+    refreshWeightStepper() {
+        if (!this.activeCard)
+            return;
+        this.weightValueText.setText(String(getSortHandWeight(this.activeCard)));
+    }
+    bumpWeight(delta) {
+        if (!this.activeCard)
             return;
         const current = getSortHandWeight(this.activeCard);
-        for (let w = SORT_WEIGHT_MIN; w <= SORT_WEIGHT_MAX; w += 1) {
-            const btn = this.scene.add
-                .text((w - 1) * 30, 0, String(w), {
-                fontSize: '11px',
-                color: current === w ? '#f0e8d8' : '#8a8070',
-                backgroundColor: current === w ? '#6a7a5a' : '#2a2620',
-                padding: { x: 6, y: 3 },
-            })
-                .setOrigin(0, 0.5)
-                .setInteractive({ useHandCursor: true });
-            btn.on('pointerdown', (p) => {
-                p.event.stopPropagation();
-                if (!this.activeCard)
-                    return;
-                setSortHandWeight(this.activeCard, w);
-                this.refreshAdvanced();
-                this.scene.events.emit('sort-hand-config-changed', { card: this.activeCard });
-                this.scene.events.emit('drag-toast', `分拣优先级：${w}`);
-            });
-            this.weightRow.add(btn);
-        }
+        const next = clampSortHandWeight(current + delta);
+        if (next === current)
+            return;
+        setSortHandWeight(this.activeCard, next);
+        this.refreshWeightStepper();
+        this.scene.events.emit('sort-hand-config-changed', { card: this.activeCard });
+        this.scene.events.emit('drag-toast', `分拣优先级：${next}`);
     }
     buildGrid() {
         if (!this.activeCard)
@@ -394,9 +424,13 @@ export class SortHandPanel extends Phaser.GameObjects.Container {
         const entries = this.collectGridEntries();
         this.measureThumbSlot(entries);
         this.layoutGridSpacing(entries.length);
-        this.shelfMaxScroll = Math.max(0, SHELF_CONTENT_PAD * 2 +
-            Math.ceil(entries.length / GRID_COLS) * this.shelfRowStride -
-            SHELF_VIEW_H);
+        const rows = Math.ceil(entries.length / GRID_COLS);
+        const h = this.shelfMaxThumbH;
+        const contentH = rows > 0
+            ? SHELF_CONTENT_PAD * 2 + rows * h + (rows - 1) * this.shelfRowGap
+            : 0;
+        const overflow = contentH - SHELF_VIEW_H;
+        this.shelfMaxScroll = Math.max(0, overflow + (overflow > 0 ? SHELF_SCROLL_END_PAD : 0));
         this.shelfScroll = Phaser.Math.Clamp(this.shelfScroll, 0, this.shelfMaxScroll);
         this.populateGrid();
     }
@@ -411,7 +445,7 @@ export class SortHandPanel extends Phaser.GameObjects.Container {
                     key: '__hint__',
                     cardId: null,
                     title: '未连接',
-                    subtitle: '靠近商店、工房或储物棚后重试',
+                    subtitle: '靠近商店、生产设施或储物棚后重试',
                     filterCardId: filterId,
                 },
             ];
@@ -423,7 +457,7 @@ export class SortHandPanel extends Phaser.GameObjects.Container {
                     key: listing.cardId,
                     cardId: listing.cardId,
                     title: def?.name ?? listing.cardId,
-                    subtitle: `${listing.costCaps} 筹`,
+                    priceCaps: listing.costCaps,
                     filterCardId: listing.cardId,
                 };
             });
@@ -447,7 +481,7 @@ export class SortHandPanel extends Phaser.GameObjects.Container {
                         key: '__hint__',
                         cardId: null,
                         title: '无法供料',
-                        subtitle: '连接工房，并确保上游有投放仓储',
+                        subtitle: '连接生产设施，并确保上游有投放仓储',
                         filterCardId: filterId,
                     },
                 ];
@@ -465,7 +499,6 @@ export class SortHandPanel extends Phaser.GameObjects.Container {
                 key: id,
                 cardId: id,
                 title: def?.name ?? id,
-                subtitle: '可收购',
                 filterCardId: id,
             };
         });
@@ -478,7 +511,7 @@ export class SortHandPanel extends Phaser.GameObjects.Container {
             key: recipe.id,
             cardId: outId,
             title: out?.name ?? recipe.id,
-            subtitle: inputId ? `供料 ${formatRecipeInputs(recipe)}` : undefined,
+            hoverDetail: inputId ? `供料 ${formatRecipeInputs(recipe)}` : undefined,
             filterCardId: inputId,
         };
     }
@@ -490,9 +523,10 @@ export class SortHandPanel extends Phaser.GameObjects.Container {
             return;
         }
         const thumb = createCardThumb(this.scene, probe, {
-            scale: THUMB_SCALE,
+            scale: SHOP_THUMB_SCALE,
             uniformStandard: true,
             compactPrice: true,
+            priceBelowCard: true,
         });
         if (!thumb) {
             this.shelfMaxThumbH = 112;
@@ -537,6 +571,7 @@ export class SortHandPanel extends Phaser.GameObjects.Container {
         this.shelfRowStride = h + this.shelfRowGap;
     }
     populateGrid() {
+        this.hideHoverDetail();
         this.gridShelf.removeAll(true);
         if (!this.activeCard)
             return;
@@ -575,32 +610,39 @@ export class SortHandPanel extends Phaser.GameObjects.Container {
     createCardTile(entry, selected) {
         const container = this.scene.add.container(0, 0);
         const thumb = createCardThumb(this.scene, entry.cardId, {
-            scale: THUMB_SCALE,
+            scale: SHOP_THUMB_SCALE,
             uniformStandard: true,
             compactPrice: true,
             title: entry.title,
             subtitle: entry.subtitle,
+            priceCaps: entry.priceCaps,
             priceBelowCard: true,
         });
         if (thumb)
             container.add(thumb);
-        if (selected) {
-            const w = thumb?.getData('thumbW') || this.shelfMaxThumbW;
-            const h = thumb?.getData('thumbH') || this.shelfMaxThumbH;
-            const ring = this.scene.add.rectangle(0, 0, w + 6, h + 6);
-            ring.setStrokeStyle(2, 0x6a7a5a, 1);
-            ring.setFillStyle(0x000000, 0);
-            container.addAt(ring, 0);
-        }
+        const hitW = thumb?.getData('thumbW') || this.shelfMaxThumbW;
+        const hitH = thumb?.getData('thumbH') || this.shelfMaxThumbH;
+        container.setData('gridEntry', entry);
+        container.setData('thumbW', hitW);
+        container.setData('thumbH', hitH);
+        const ring = this.scene.add.rectangle(0, 0, hitW + 6, hitH + 6);
+        ring.setStrokeStyle(2, SELECT_STROKE, 1);
+        ring.setFillStyle(0x000000, 0);
+        ring.setVisible(selected);
+        container.addAt(ring, 0);
+        container.setData('selectionRing', ring);
         if (entry.key !== '__hint__') {
-            const hitW = thumb?.getData('thumbW') || this.shelfMaxThumbW;
-            const hitH = thumb?.getData('thumbH') || this.shelfMaxThumbH;
             container.setSize(hitW, hitH);
             container.setInteractive(new Phaser.Geom.Rectangle(-hitW / 2, -hitH / 2, hitW, hitH), Phaser.Geom.Rectangle.Contains);
             container.on('pointerdown', (p) => {
                 p.event.stopPropagation();
                 this.selectEntry(entry);
             });
+            if (entry.hoverDetail) {
+                const detail = entry.hoverDetail;
+                container.on('pointerover', () => this.showHoverDetail(detail, container));
+                container.on('pointerout', () => this.hideHoverDetail());
+            }
         }
         return container;
     }
@@ -608,11 +650,11 @@ export class SortHandPanel extends Phaser.GameObjects.Container {
         const container = this.scene.add.container(0, 0);
         const w = this.shelfMaxThumbW;
         const h = this.shelfMaxThumbH;
-        const bg = this.scene.add.rectangle(0, 0, w, h, selected ? 0x3a4030 : 0x2a2820, 1);
-        bg.setStrokeStyle(2, selected ? 0x6a7a5a : 0x4a4840, 1);
+        const bg = this.scene.add.rectangle(0, 0, w, h, selected ? 0x3a3228 : 0x2a2620, 1);
+        bg.setStrokeStyle(2, selected ? SELECT_STROKE : 0x4a4030, 1);
         const title = this.scene.add.text(0, -8, entry.title, {
             fontSize: '11px',
-            color: '#c9c0b0',
+            color: selected ? TITLE_COLOR : '#c9c0b0',
             align: 'center',
             wordWrap: { width: w - 8 },
         });
@@ -629,6 +671,10 @@ export class SortHandPanel extends Phaser.GameObjects.Container {
         container.add([bg, title]);
         if (sub)
             container.add(sub);
+        container.setData('gridEntry', entry);
+        container.setData('thumbW', w);
+        container.setData('thumbH', h);
+        container.setData('selectionRing', bg);
         if (entry.key !== '__hint__') {
             container.setSize(w, h);
             container.setInteractive(new Phaser.Geom.Rectangle(-w / 2, -h / 2, w, h), Phaser.Geom.Rectangle.Contains);
@@ -636,8 +682,56 @@ export class SortHandPanel extends Phaser.GameObjects.Container {
                 p.event.stopPropagation();
                 this.selectEntry(entry);
             });
+            if (entry.hoverDetail) {
+                const detail = entry.hoverDetail;
+                container.on('pointerover', () => this.showHoverDetail(detail, container));
+                container.on('pointerout', () => this.hideHoverDetail());
+            }
         }
         return container;
+    }
+    updateGridSelection() {
+        if (!this.activeCard)
+            return;
+        const filterId = getSortFilterCardId(this.activeCard);
+        for (const child of this.gridShelf.getAll()) {
+            const entry = child.getData('gridEntry');
+            if (!entry || entry.key === '__hint__')
+                continue;
+            const selected = entry.filterCardId === filterId ||
+                (entry.filterCardId === null && filterId === null);
+            const ring = child.getData('selectionRing');
+            if (!ring)
+                continue;
+            ring.setVisible(selected);
+            if (entry.cardId == null) {
+                ring.setStrokeStyle(2, selected ? SELECT_STROKE : 0x4a4030, 1);
+                ring.setFillStyle(selected ? 0x3a3228 : 0x2a2620, 1);
+            }
+        }
+    }
+    showHoverDetail(text, tile) {
+        if (!this.hoverDetailHint) {
+            this.hoverDetailHint = this.scene.add.text(0, 0, '', {
+                fontSize: '11px',
+                color: '#f0e8d8',
+                backgroundColor: '#2a2620ee',
+                padding: { x: 8, y: 4 },
+            });
+            this.hoverDetailHint.setOrigin(0.5, 1);
+            this.hoverDetailHint.setDepth(PANEL_DEPTH + 80);
+            this.hoverDetailHint.setScrollFactor(0);
+        }
+        const thumbH = tile.getData('thumbH') || this.shelfMaxThumbH;
+        const sx = this.x + this.gridShelf.x + tile.x;
+        const sy = this.y + this.gridShelf.y + tile.y - thumbH / 2 - 6;
+        this.hoverDetailHint.setText(text);
+        this.hoverDetailHint.setPosition(sx, sy);
+        this.hoverDetailHint.setVisible(true);
+        this.bringToTop(this.hoverDetailHint);
+    }
+    hideHoverDetail() {
+        this.hoverDetailHint?.setVisible(false);
     }
     selectEntry(entry) {
         if (!this.activeCard || entry.key === '__hint__')
@@ -648,25 +742,23 @@ export class SortHandPanel extends Phaser.GameObjects.Container {
         else {
             clearSortFilterCardId(this.activeCard);
         }
+        this.updateGridSelection();
+        this.statusText.setText(formatSortHandSummary(this.activeCard, this.getGraph()));
         this.scene.events.emit('sort-hand-config-changed', { card: this.activeCard });
-        const def = entry.filterCardId ? dataStore.getCard(entry.filterCardId) : null;
-        const label = def?.name ?? entry.title;
-        this.scene.events.emit('drag-toast', `已选：${label}`);
-        this.refreshChrome();
     }
     bringChromeToFront() {
         this.bringToTop(this.shelfBottomCover);
         this.bringToTop(this.tabBarShield);
+        this.bringToTop(this.tabRow);
         this.bringToTop(this.titleBar);
+        this.bringToTop(this.statusText);
+        this.bringToTop(this.weightStepper);
         this.bringToTop(this.titleText);
         this.bringToTop(this.closeBtn);
-        this.bringToTop(this.summaryText);
-        this.bringToTop(this.tabRow);
-        this.bringToTop(this.hintText);
-        this.bringToTop(this.advancedToggle);
-        this.bringToTop(this.advancedRow);
         this.bringToTop(this.showAllBtn);
-        this.bringToTop(this.doneBtn);
+        if (this.hoverDetailHint?.visible) {
+            this.bringToTop(this.hoverDetailHint);
+        }
     }
     syncPanelBounds() {
         const panelLeft = this.x - PANEL_W / 2;

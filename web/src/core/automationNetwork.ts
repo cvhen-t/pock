@@ -215,6 +215,64 @@ export function findSortHandsViaGraph(
 
 
 
+/** 储物棚 → 下游传送节点 */
+
+export function getRelayForWarehouse(
+
+  graph: AutomationGraph,
+
+  warehouse: GameCard,
+
+): GameCard | null {
+
+  const dev = findDevice(graph, warehouse);
+
+  if (!dev) return null;
+
+  return (
+
+    graph.edges.find((e) => e.from.id === dev.id && e.toRole === 'auto_relay')?.to.card ?? null
+
+  );
+
+}
+
+
+
+/** 与设施直连的储物棚（供料边） */
+
+export function getWarehousesLinkedToFacility(
+
+  graph: AutomationGraph,
+
+  facility: GameCard,
+
+): GameCard[] {
+
+  const dev = findDevice(graph, facility);
+
+  if (!dev) return [];
+
+  return graph.edges
+
+    .filter(
+
+      (e) =>
+
+        e.to.id === dev.id &&
+
+        e.fromRole === 'warehouse' &&
+
+        e.toRole === 'logistics_facility',
+
+    )
+
+    .map((e) => e.from.card);
+
+}
+
+
+
 /** 工房 → 下游传送节点 */
 
 export function getRelayForFacility(
@@ -397,6 +455,38 @@ export function isActiveFacilityRelayChain(
       (e) => e.from.card === sh && DOWNSTREAM_ROLES.includes(e.toRole as (typeof DOWNSTREAM_ROLES)[number]),
 
     ),
+
+  );
+
+}
+
+
+
+/** 储物棚 → 传送 → 分拣手 → 生产设施 为有效出库链 */
+
+export function isActiveWarehouseRelayChain(
+
+  graph: AutomationGraph,
+
+  warehouseDevice: LogisticsDevice,
+
+): boolean {
+
+  const relayEdge = graph.edges.find(
+
+    (e) => e.from.id === warehouseDevice.id && e.toRole === 'auto_relay',
+
+  );
+
+  if (!relayEdge) return false;
+
+  const sortHands = findSortHandsViaGraph(graph.edges, relayEdge.to);
+
+  if (sortHands.length === 0) return false;
+
+  return sortHands.some((sh) =>
+
+    graph.edges.some((e) => e.from.card === sh && e.toRole === 'logistics_facility'),
 
   );
 
