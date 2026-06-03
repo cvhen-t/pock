@@ -4,6 +4,11 @@ import {
   getSortHandDownstream,
   type AutomationGraph,
 } from './automationNetwork';
+import {
+  getRelayDeviceForSortHand,
+  listSourcesOnRelay,
+  type SourceRole,
+} from './automationPath';
 import { getWarehouseInventory, isWarehouseStorable } from './storageInventory';
 import type { CardStackSystem } from '../systems/CardStackSystem';
 import type GameCard from '../objects/GameCard';
@@ -177,7 +182,12 @@ export function deriveAvailableModes(
 ): SortModeId[] {
   if (!graph) return [];
   const modes: SortModeId[] = [];
-  if (getSortHandDownstream(graph, sortHand, 'logistics_facility')) modes.push('feed');
+  if (
+    getSortHandDownstream(graph, sortHand, 'logistics_facility') ||
+    getSortHandDownstream(graph, sortHand, 'logistics_depot')
+  ) {
+    modes.push('feed');
+  }
   if (getSortHandDownstream(graph, sortHand, 'shop')) {
     modes.push('sell', 'buy');
   }
@@ -228,12 +238,37 @@ export interface SortHandGridEntry {
   filterCardId: string | null;
 }
 
+const STORE_SOURCE_ROLES: SourceRole[] = ['warehouse', 'logistics_depot'];
+
+function appendStorageInventoryEntries(
+  entries: SortHandGridEntry[],
+  seen: Set<string>,
+  storageCard: GameCard,
+  stacks: CardStackSystem,
+  qtyLabel: string,
+): void {
+  const stack = stacks.getStackAt(storageCard);
+  if (!stack) return;
+  for (const e of getWarehouseInventory(stack)) {
+    if (seen.has(e.cardId)) continue;
+    seen.add(e.cardId);
+    const def = dataStore.getCard(e.cardId);
+    entries.push({
+      key: e.cardId,
+      cardId: e.cardId,
+      title: def?.name ?? e.cardId,
+      subtitle: e.qty > 1 ? `${qtyLabel} ×${e.qty}` : qtyLabel,
+      filterCardId: e.cardId,
+    });
+  }
+}
+
 export function buildStoreGridEntries(
   sortHand: GameCard,
   graph: AutomationGraph | undefined,
   stacks: CardStackSystem,
   allCards: CardDefinition[],
-  showAllStorable: boolean,
+  _showAllStorable?: boolean,
 ): SortHandGridEntry[] {
   const entries: SortHandGridEntry[] = [
     {
@@ -246,39 +281,31 @@ export function buildStoreGridEntries(
   ];
   const seen = new Set<string>();
 
-  const depot = graph ? getLinkedDepotForSortHand(graph, sortHand) : null;
-  if (depot) {
-    const stack = stacks.getStackAt(depot);
-    if (stack) {
-      for (const e of getWarehouseInventory(stack)) {
-        if (seen.has(e.cardId)) continue;
-        seen.add(e.cardId);
-        const def = dataStore.getCard(e.cardId);
-        entries.push({
-          key: e.cardId,
-          cardId: e.cardId,
-          title: def?.name ?? e.cardId,
-          subtitle: e.qty > 1 ? `仓储 ×${e.qty}` : '仓储有货',
-          filterCardId: e.cardId,
-        });
-      }
+  const relayDev = graph ? getRelayDeviceForSortHand(graph, sortHand) : undefined;
+  if (graph && relayDev) {
+    for (const src of listSourcesOnRelay(graph, relayDev)) {
+      if (!STORE_SOURCE_ROLES.includes(src.role as SourceRole)) continue;
+      appendStorageInventoryEntries(entries, seen, src.card, stacks, '上游有货');
     }
   }
 
-  if (showAllStorable || entries.length <= 1) {
-    for (const id of listStorableCardIds(allCards)) {
-      if (seen.has(id)) continue;
-      seen.add(id);
-      const def = dataStore.getCard(id);
-      entries.push({
-        key: id,
-        cardId: id,
-        title: def?.name ?? id,
-        subtitle: '仅存入此物',
-        filterCardId: id,
-      });
-      if (entries.length >= 25) break;
-    }
+  const depot = graph ? getLinkedDepotForSortHand(graph, sortHand) : null;
+  if (depot) {
+    appendStorageInventoryEntries(entries, seen, depot, stacks, '投放仓储有货');
+  }
+
+  for (const id of listStorableCardIds(allCards)) {
+    if (seen.has(id)) continue;
+    seen.add(id);
+    const def = dataStore.getCard(id);
+    entries.push({
+      key: id,
+      cardId: id,
+      title: def?.name ?? id,
+      subtitle: '仅存入此物',
+      filterCardId: id,
+    });
+    if (entries.length >= 25) break;
   }
 
   return entries;

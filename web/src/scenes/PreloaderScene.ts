@@ -110,6 +110,6 @@ export default class PreloaderScene extends Phaser.Scene {
     generateGameTextures(this, cards.map((c) => c.id));
     registerAllAttackVfx(this);
     registerWorldSprites(this);
-    this.scene.start('Game');
+    this.scene.start('MainMenu');
   }
 }

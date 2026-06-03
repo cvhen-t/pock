@@ -1,5 +1,6 @@
 import BootScene from '../scenes/BootScene';
 import PreloaderScene from '../scenes/PreloaderScene';
+import MainMenuScene from '../scenes/MainMenuScene';
 import GameScene from '../scenes/GameScene';
 export const REGISTRY = {
     DAY_SECONDS: 'daySeconds',
@@ -33,7 +34,7 @@ export function createGameConfig(parent) {
             activePointers: 1,
             smoothFactor: 0,
         },
-        scene: [BootScene, PreloaderScene, GameScene],
+        scene: [BootScene, PreloaderScene, MainMenuScene, GameScene],
         render: {
             antialias: true,
             roundPixels: true,

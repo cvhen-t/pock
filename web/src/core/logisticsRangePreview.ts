@@ -1,8 +1,7 @@
-import Phaser from 'phaser';
 import type { AutomationConfig } from './automationConfig';
+import { computeLogisticsDragSnapshot } from './logisticsLinkDragSnapshot';
+import { REGISTRY_LINK_VISUAL, type LinkVisualConfig } from './linkVisualConfig';
 import { edgeStyleKey, getLogisticsRole, type LinkConnectionRule } from './linkRules';
-import { collectLogisticsDevices, loadLinkRulesFromRegistry, REGISTRY_AUTOMATION_GRAPH } from './automationNetwork';
-import type { LogisticsDevice } from './sortHandRules';
 import type GameCard from '../objects/GameCard';
 
 export interface LogisticsRangeSpec {
@@ -51,123 +50,56 @@ export function getLogisticsRangeSpec(
   return null;
 }
 
-function distCards(a: GameCard, b: GameCard): number {
-  return Phaser.Math.Distance.Between(a.x, a.y, b.x, b.y);
+/**
+ * 拖拽预览：与松手后相同的 stable 建图，返回涉及本次 mover 的连边。
+ */
+export function findLogisticsPreviewLinksStable(
+  scene: Phaser.Scene,
+  dragged: GameCard,
+  linkRadius: number,
+  dragCards: GameCard[],
+  rules?: LinkConnectionRule[],
+): LogisticsPreviewLink[] {
+  const visual = scene.registry.get(REGISTRY_LINK_VISUAL) as LinkVisualConfig;
+  const snapshot = computeLogisticsDragSnapshot(
+    scene,
+    dragged,
+    linkRadius,
+    dragCards,
+    visual,
+    rules,
+  );
+  return snapshot.active;
 }
 
-function deviceMatchesRole(device: LogisticsDevice, role: string): boolean {
-  return device.role === role || device.tags.includes(role);
-}
+export { computeLogisticsDragSnapshot } from './logisticsLinkDragSnapshot';
+export type {
+  BlockedLogisticsLink,
+  LogisticsDragSnapshot,
+} from './logisticsLinkDragSnapshot';
 
-/** Preview links when dragged card is within linkRadius of a valid partner. */
+/** @deprecated 请用 findLogisticsPreviewLinksStable */
 export function findLogisticsPreviewLinks(
   scene: Phaser.Scene,
   dragged: GameCard,
   linkRadius: number,
   rules?: LinkConnectionRule[],
 ): LogisticsPreviewLink[] {
-  const linkRules = rules ?? loadLinkRulesFromRegistry(scene);
-  const devices = collectLogisticsDevices(scene);
-  const draggedRole = getLogisticsRole(dragged.definition.tags ?? []);
-  const draggedTags = dragged.definition.tags ?? [];
-  const found = new Map<GameCard, LogisticsPreviewLink>();
-
-  for (const rule of linkRules) {
-    const draggedIsFrom = draggedRole === rule.from;
-    const draggedIsTo = draggedRole === rule.to || draggedTags.includes(rule.to);
-    if (!draggedIsFrom && !draggedIsTo) continue;
-
-    for (const device of devices) {
-      if (device.card === dragged) continue;
-      if (distCards(dragged, device.card) > linkRadius) continue;
-
-      if (draggedIsFrom && deviceMatchesRole(device, rule.to)) {
-        found.set(device.card, {
-          other: device.card,
-          fromRole: rule.from,
-          toRole: rule.to,
-          fromCard: dragged,
-          toCard: device.card,
-        });
-      }
-      if (draggedIsTo && deviceMatchesRole(device, rule.from)) {
-        found.set(device.card, {
-          other: device.card,
-          fromRole: rule.from,
-          toRole: rule.to,
-          fromCard: device.card,
-          toCard: dragged,
-        });
-      }
-    }
-  }
-
-  limitSortHandPreviewLinks(scene, dragged, draggedRole, found);
-
-  return [...found.values()];
-}
-
-/** 分拣手拖拽预览：上游/下游各最多一条 */
-function limitSortHandPreviewLinks(
-  scene: Phaser.Scene,
-  dragged: GameCard,
-  draggedRole: string | null,
-  found: Map<GameCard, LogisticsPreviewLink>,
-): void {
-  const graph = scene.registry.get(REGISTRY_AUTOMATION_GRAPH) as
-    | { edges: { from: { card: GameCard }; to: { card: GameCard }; fromRole: string; toRole: string }[] }
-    | undefined;
-
-  if (draggedRole === 'logistics_sorter') {
-    const hasOut =
-      graph?.edges.some((e) => e.from.card === dragged && e.fromRole === 'logistics_sorter') ?? false;
-    const hasIn =
-      graph?.edges.some((e) => e.to.card === dragged && e.toRole === 'logistics_sorter') ?? false;
-
-    const downstream = [...found.values()].filter(
-      (l) => l.fromCard === dragged && l.fromRole === 'logistics_sorter',
-    );
-    if (downstream.length > 1 || hasOut) {
-      const keep =
-        hasOut ? null : downstream.sort((a, b) => distCards(dragged, a.other) - distCards(dragged, b.other))[0];
-      for (const link of downstream) {
-        if (link !== keep) found.delete(link.other);
-      }
-    }
-
-    const upstream = [...found.values()].filter(
-      (l) => l.toCard === dragged && l.toRole === 'logistics_sorter',
-    );
-    if (upstream.length > 1 || hasIn) {
-      const keep =
-        hasIn ? null : upstream.sort((a, b) => distCards(dragged, a.other) - distCards(dragged, b.other))[0];
-      for (const link of upstream) {
-        if (link !== keep) found.delete(link.other);
-      }
-    }
-    return;
-  }
-
-  for (const [other, link] of [...found.entries()]) {
-    if (link.toRole !== 'logistics_sorter' || link.toCard === dragged) continue;
-    const sortHand = link.toCard;
-    const alreadyOut = graph?.edges.some(
-      (e) => e.from.card === sortHand && e.fromRole === 'logistics_sorter',
-    );
-    if (alreadyOut) found.delete(other);
-  }
+  return findLogisticsPreviewLinksStable(scene, dragged, linkRadius, [dragged], rules);
 }
 
 export function previewLinkStyleKey(link: LogisticsPreviewLink): string {
   return edgeStyleKey(link.fromRole, link.toRole);
 }
 
-/** @deprecated Use findLogisticsPreviewLinks */
+/** @deprecated Use findLogisticsPreviewLinksStable */
 export function findLogisticsLinkCandidates(
   scene: Phaser.Scene,
   dragged: GameCard,
   linkRadius: number,
   rules?: LinkConnectionRule[],
 ): GameCard[] {
-  return findLogisticsPreviewLinks(scene, dragged, linkRadius, rules).map((l) => l.other);
+  return findLogisticsPreviewLinksStable(scene, dragged, linkRadius, [dragged], rules).map(
+    (l) => l.other,
+  );
 }

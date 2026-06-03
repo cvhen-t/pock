@@ -41,6 +41,20 @@ export class CardStackSystem {
     return id;
   }
 
+  /** Restore a stack from save (preserves stack id). */
+  importStack(stack: CardStack): void {
+    const match = /^stack_(\d+)$/.exec(stack.id);
+    if (match) {
+      const n = parseInt(match[1], 10);
+      if (!Number.isNaN(n)) this.nextId = Math.max(this.nextId, n + 1);
+    }
+    stack.base.stackId = stack.id;
+    for (const member of stack.members) {
+      member.stackId = stack.id;
+    }
+    this.stacks.set(stack.id, stack);
+  }
+
   getAllStacks(): CardStack[] {
     return [...this.stacks.values()];
   }

@@ -1,10 +1,8 @@
 import Phaser from 'phaser';
+import { isAutomationEdgeActive } from '../core/automationPath';
 import { edgeStyleKey } from '../core/linkRules';
 import {
   EVENT_AUTOMATION_GRAPH_UPDATED,
-  isActiveCollectorChain,
-  isActiveFacilityRelayChain,
-  isActiveWarehouseRelayChain,
   REGISTRY_AUTOMATION_GRAPH,
   type AutomationGraph,
 } from '../core/automationNetwork';
@@ -42,14 +40,7 @@ export class ConveyorLinkRenderer {
       const style = visual.edgeStyles[key];
       const color = hexToNumber(style?.color ?? visual.activeEdgeColor);
       const width = style?.width ?? 2;
-      const active =
-        edge.from.role === 'logistics_collect'
-          ? isActiveCollectorChain(graph, edge.from)
-          : edge.from.role === 'logistics_facility' && edge.toRole === 'auto_relay'
-            ? isActiveFacilityRelayChain(graph, edge.from)
-            : edge.from.role === 'warehouse' && edge.toRole === 'auto_relay'
-              ? isActiveWarehouseRelayChain(graph, edge.from)
-              : true;
+      const active = isAutomationEdgeActive(graph, edge);
       this.drawEdge(edge.from.card, edge.to.card, color, width, active ? 0.85 : visual.inactiveAlpha);
     }
   }

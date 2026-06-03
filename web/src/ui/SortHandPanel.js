@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { getSortHandPathStatus, sortHandPathHintSubtitle, } from '../core/automationPath';
 import { REGISTRY_AUTOMATION_GRAPH } from '../core/automationNetwork';
 import { dataStore } from '../core/DataStore';
 import { SORT_MODES, buildStoreGridEntries, clearSortFilterCardId, clampSortHandWeight, deriveAvailableModes, firstInputCardId, formatRecipeInputs, formatSortHandSummary, getSortFilterCardId, getSortHandWeight, getSortMode, listBuyCandidates, listFeedRecipesForSortHand, listSellableCardIds, resolveDefaultSortMode, setSortFilterCardId, setSortHandWeight, setSortMode, } from '../core/sortHandRules';
@@ -343,6 +344,25 @@ export class SortHandPanel extends Phaser.GameObjects.Container {
     getGraph() {
         return this.scene.registry.get(REGISTRY_AUTOMATION_GRAPH);
     }
+    pathHintEntry(card, graph) {
+        const status = getSortHandPathStatus(graph, card);
+        if (status === 'ok')
+            return null;
+        const mode = getSortMode(card);
+        const subtitle = sortHandPathHintSubtitle(status, mode);
+        const title = status === 'no_downstream'
+            ? '下游与模式不匹配'
+            : status === 'no_relay'
+                ? '未连接传送'
+                : '上游未就绪';
+        return {
+            key: '__path__',
+            cardId: null,
+            title,
+            subtitle,
+            filterCardId: getSortFilterCardId(card),
+        };
+    }
     refreshChrome() {
         if (!this.activeCard)
             return;
@@ -351,7 +371,7 @@ export class SortHandPanel extends Phaser.GameObjects.Container {
         this.statusText.setText(formatSortHandSummary(this.activeCard, graph));
         this.refreshWeightStepper();
         this.buildModeTabs();
-        this.showAllBtn.setVisible(this.activeMode === 'store' && !this.showAllStorable);
+        this.showAllBtn.setVisible(false);
         this.buildGrid();
         this.bringChromeToFront();
     }
@@ -475,23 +495,24 @@ export class SortHandPanel extends Phaser.GameObjects.Container {
                 ];
             }
             const recipes = listFeedRecipesForSortHand(card, graph, dataStore.getRecipes(), dayIndex);
+            const pathHint = this.pathHintEntry(card, graph);
             if (recipes.length === 0) {
-                return [
-                    {
-                        key: '__hint__',
-                        cardId: null,
-                        title: '无法供料',
-                        subtitle: '连接生产设施，并确保上游有投放仓储',
-                        filterCardId: filterId,
-                    },
-                ];
+                const emptyHint = {
+                    key: '__hint__',
+                    cardId: null,
+                    title: '无法供料',
+                    subtitle: '连接生产设施或投放仓储，并确保上游有货',
+                    filterCardId: filterId,
+                };
+                return pathHint ? [pathHint, emptyHint] : [emptyHint];
             }
-            return recipes.slice(0, 24).map((recipe) => this.recipeToEntry(recipe));
+            return this.withPathHint(pathHint, recipes.slice(0, 24).map((recipe) => this.recipeToEntry(recipe)));
         }
         if (this.activeMode === 'store') {
-            return buildStoreGridEntries(card, graph, this.stacks, dataStore.getAllCards(), this.showAllStorable);
+            return this.withPathHint(this.pathHintEntry(card, graph), buildStoreGridEntries(card, graph, this.stacks, dataStore.getAllCards(), this.showAllStorable));
         }
-        return listSellableCardIds(this.shopCatalog, dataStore.getAllCards())
+        const sellPathHint = this.pathHintEntry(card, graph);
+        return this.withPathHint(sellPathHint, listSellableCardIds(this.shopCatalog, dataStore.getAllCards())
             .slice(0, 24)
             .map((id) => {
             const def = dataStore.getCard(id);
@@ -501,7 +522,13 @@ export class SortHandPanel extends Phaser.GameObjects.Container {
                 title: def?.name ?? id,
                 filterCardId: id,
             };
-        });
+        }));
+    }
+    withPathHint(hint, entries) {
+        return hint ? [hint, ...entries] : entries;
+    }
+    isNonSelectableGridKey(key) {
+        return key === '__hint__' || key === '__path__';
     }
     recipeToEntry(recipe) {
         const outId = recipe.output?.cardId ?? recipe.id;
@@ -591,7 +618,7 @@ export class SortHandPanel extends Phaser.GameObjects.Container {
             for (let col = 0; col < countInRow; col++) {
                 const entry = entries[rowStart + col];
                 const x = this.shelfColX(col);
-                const selected = entry.key === '__hint__'
+                const selected = this.isNonSelectableGridKey(entry.key)
                     ? false
                     : entry.filterCardId === filterId ||
                         (entry.filterCardId === null && filterId === null);
@@ -631,7 +658,7 @@ export class SortHandPanel extends Phaser.GameObjects.Container {
         ring.setVisible(selected);
         container.addAt(ring, 0);
         container.setData('selectionRing', ring);
-        if (entry.key !== '__hint__') {
+        if (!this.isNonSelectableGridKey(entry.key)) {
             container.setSize(hitW, hitH);
             container.setInteractive(new Phaser.Geom.Rectangle(-hitW / 2, -hitH / 2, hitW, hitH), Phaser.Geom.Rectangle.Contains);
             container.on('pointerdown', (p) => {
@@ -675,7 +702,7 @@ export class SortHandPanel extends Phaser.GameObjects.Container {
         container.setData('thumbW', w);
         container.setData('thumbH', h);
         container.setData('selectionRing', bg);
-        if (entry.key !== '__hint__') {
+        if (!this.isNonSelectableGridKey(entry.key)) {
             container.setSize(w, h);
             container.setInteractive(new Phaser.Geom.Rectangle(-w / 2, -h / 2, w, h), Phaser.Geom.Rectangle.Contains);
             container.on('pointerdown', (p) => {
@@ -696,7 +723,7 @@ export class SortHandPanel extends Phaser.GameObjects.Container {
         const filterId = getSortFilterCardId(this.activeCard);
         for (const child of this.gridShelf.getAll()) {
             const entry = child.getData('gridEntry');
-            if (!entry || entry.key === '__hint__')
+            if (!entry || this.isNonSelectableGridKey(entry.key))
                 continue;
             const selected = entry.filterCardId === filterId ||
                 (entry.filterCardId === null && filterId === null);
@@ -734,7 +761,7 @@ export class SortHandPanel extends Phaser.GameObjects.Container {
         this.hoverDetailHint?.setVisible(false);
     }
     selectEntry(entry) {
-        if (!this.activeCard || entry.key === '__hint__')
+        if (!this.activeCard || this.isNonSelectableGridKey(entry.key))
             return;
         if (entry.filterCardId) {
             setSortFilterCardId(this.activeCard, entry.filterCardId);

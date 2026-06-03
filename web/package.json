@@ -10,7 +10,9 @@
     "bake:vfx": "node scripts/bake-attack-vfx.mjs",
     "bake:icons": "npx tsx scripts/bake-card-icons.ts",
     "bake:icon": "npx tsx scripts/bake-card-icons.ts",
-    "process:world": "node scripts/process-world-sprite.mjs"
+    "process:world": "node scripts/process-world-sprite.mjs",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "phaser": "beta"
@@ -18,6 +20,7 @@
   "devDependencies": {
     "@napi-rs/canvas": "^0.1.67",
     "typescript": "^5.7.2",
-    "vite": "^6.0.3"
+    "vite": "^6.0.3",
+    "vitest": "^3.2.4"
   }
 }

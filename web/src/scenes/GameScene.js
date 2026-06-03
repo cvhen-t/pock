@@ -27,7 +27,7 @@ import GameBackground from '../ui/GameBackground';
 import HandBar from '../ui/HandBar';
 import ActionBar from '../ui/ActionBar';
 import { computeLayout, readSafeBottom, readSafeTop, } from '../ui/LayoutManager';
-import { computeStarterBoardLayout, computeStarterLogisticsLayout, } from '../config/starterBoardLayout';
+import { computeStarterBoardLayout, computeStarterLogisticsLayout, INITIAL_BOARD_MODE, } from '../config/starterBoardLayout';
 import { parseAutomationConfig, REGISTRY_AUTOMATION_CONFIG } from '../core/automationConfig';
 import { parseLinkVisual, REGISTRY_LINK_VISUAL } from '../core/linkVisualConfig';
 import { setSortFilterCardId, setSortMode } from '../core/sortHandRules';
@@ -51,6 +51,9 @@ import StoragePanel from '../ui/StoragePanel';
 import GuidePanel from '../ui/GuidePanel';
 import { deliverToPlayerWarehouse } from '../core/automationDelivery';
 import { pullFromWarehouse } from '../core/storageInventory';
+import { buildSaveFile } from '../core/save/gameSaveCodec';
+import { applySaveFile } from '../core/save/gameSaveApply';
+import { writeSaveGame } from '../core/save/saveStorage';
 export default class GameScene extends Phaser.Scene {
     stackSystem;
     dragSystem;
@@ -78,8 +81,13 @@ export default class GameScene extends Phaser.Scene {
     resources = { food: 4, water: 3, caps: 2 };
     gameOver = false;
     toast;
+    pendingSave;
+    pendingGameOverFromSave = false;
     constructor() {
         super({ key: 'Game' });
+    }
+    init(data) {
+        this.pendingSave = data?.save;
     }
     create() {
         if (dataStore.getAllCards().length === 0) {
@@ -243,9 +251,18 @@ export default class GameScene extends Phaser.Scene {
         this.setupMetaUi();
         this.stackLane = new StackLane(this, this.stackSystem, this.workSites, this.mutantGrowth);
         this.applyLayout();
-        this.spawnStarterBoard();
+        if (this.pendingSave) {
+            this.restoreFromSave(this.pendingSave);
+            this.pendingSave = undefined;
+        }
+        else {
+            this.spawnStarterBoard();
+        }
         const traps = new TrapSystem(this);
         this.invasion = new InvasionSystem(this, this.spawner, this.baseCamp, this.barriers, traps, this.invasionConfig);
+        if (INITIAL_BOARD_MODE === 'test') {
+            this.invasion.pauseSpawning();
+        }
         traps.bindInvasion(this.invasion);
         const enemyStatus = new EnemyStatusSystem(this, this.invasion);
         this.invasion.bindStatusSystem(enemyStatus);
@@ -266,6 +283,10 @@ export default class GameScene extends Phaser.Scene {
         const plantAttackVfx = new PlantAttackVfxSystem(this, this.invasion, enemyStatus);
         new DefenseTurretSystem(this, this.invasion, plantAttackVfx, enemyStatus, plantActivation);
         this.setupDayCycle();
+        if (this.pendingGameOverFromSave) {
+            this.applyGameOverUi();
+            this.pendingGameOverFromSave = false;
+        }
         this.events.on('day-end', () => this.onDayEnd());
         this.scale.on('resize', this.handleResize, this);
         this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
@@ -275,6 +296,7 @@ export default class GameScene extends Phaser.Scene {
             this.mutantGrowth.destroy();
             this.invasion.destroy();
         });
+        this.cameras.main.fadeIn(400, 10, 12, 10);
     }
     blocksBoardDrag(sx, sy) {
         if (this.backpackBar.isDraggingFromHand() || this.actionBar.isDraggingFromBar()) {
@@ -346,7 +368,12 @@ export default class GameScene extends Phaser.Scene {
                 this.guidePanel?.toggle();
             }
             else if (key === 'settings') {
-                this.showToast('设置（即将推出）', '#8a9a7a');
+                if (this.saveGame()) {
+                    this.showToast('进度已存档', '#8a9a7a');
+                }
+                else {
+                    this.showToast('存档失败', '#8b3a3a');
+                }
             }
             else if (key === 'speed') {
                 this.showToast('加速（即将推出）', '#8a9a7a');
@@ -527,10 +554,72 @@ export default class GameScene extends Phaser.Scene {
             this.toast.setPosition(pf.centerX, pf.bottom - 24);
         }
     }
+    saveGame() {
+        try {
+            const file = buildSaveFile({
+                scene: this,
+                stacks: this.stackSystem,
+                blueprintStacks: this.actionBar.getBlueprintStackSystem(),
+                resources: this.resources,
+                topHud: this.topHud,
+                backpack: this.backpackBar.inventory,
+                baseCamp: this.baseCamp,
+                barriers: this.barriers,
+                gameOver: this.gameOver,
+            });
+            writeSaveGame(file);
+            return true;
+        }
+        catch (err) {
+            console.warn('saveGame failed', err);
+            return false;
+        }
+    }
+    restoreFromSave(save) {
+        applySaveFile({
+            scene: this,
+            stacks: this.stackSystem,
+            drag: this.dragSystem,
+            blueprintStacks: this.actionBar.getBlueprintStackSystem(),
+            baseCamp: this.baseCamp,
+            barriers: this.barriers,
+            resources: this.resources,
+        }, save);
+        this.backpackBar.restoreInventory(save.backpack.map((s) => ({ cardId: s.cardId, count: s.count, order: s.order })));
+        this.topHud.restoreDayState(save.dayIndex, save.dayRemaining);
+        this.topHud.setSpeedLevel(save.speedLevel);
+        this.gameOver = save.gameOver;
+        this.clampAllBoardCards();
+        this.syncBaseHud();
+        if (save.gameOver) {
+            this.pendingGameOverFromSave = true;
+        }
+        else {
+            this.showToast('已读取存档', '#8a9a7a');
+        }
+    }
+    applyGameOverUi() {
+        this.backpackBar.setGameOver(true);
+        this.actionBar.setGameOver(true);
+        this.invasion.pauseSpawning();
+        const pf = this.layout.playfield;
+        this.add
+            .text(pf.centerX, pf.centerY, '避难所陷落\n大本营已被摧毁', {
+            fontSize: '22px',
+            color: '#c9b896',
+            align: 'center',
+            backgroundColor: '#000000cc',
+            padding: { x: 24, y: 16 },
+        })
+            .setOrigin(0.5)
+            .setDepth(3000);
+    }
     spawnStarterBoard() {
-        const layout = computeStarterBoardLayout(this.layout.playfield);
-        for (const item of layout) {
-            this.placeStarterCard(item);
+        if (INITIAL_BOARD_MODE === 'starter') {
+            const layout = computeStarterBoardLayout(this.layout.playfield);
+            for (const item of layout) {
+                this.placeStarterCard(item);
+            }
         }
         const logistics = computeStarterLogisticsLayout(this.layout.playfield);
         for (const item of logistics) {
@@ -544,7 +633,7 @@ export default class GameScene extends Phaser.Scene {
         this.clampAllBoardCards();
         this.backpackBar.addCard('test_shop', 1);
         this.syncBaseHud();
-        this.showToast('物流演示：点击分拣手配置 卖/买/存/供料', '#8a9a7a');
+        this.showToast('综合演示：林木→木板 · 纤维→粗麻绳 · 储物棚→卖出木板', '#8a9a7a');
     }
     placeStarterCard(item) {
         const def = dataStore.getCard(item.id);
@@ -570,20 +659,7 @@ export default class GameScene extends Phaser.Scene {
     }
     onBaseDestroyed() {
         this.gameOver = true;
-        this.backpackBar.setGameOver(true);
-        this.actionBar.setGameOver(true);
-        this.invasion.pauseSpawning();
-        const pf = this.layout.playfield;
-        this.add
-            .text(pf.centerX, pf.centerY, '避难所陷落\n大本营已被摧毁', {
-            fontSize: '22px',
-            color: '#c9b896',
-            align: 'center',
-            backgroundColor: '#000000cc',
-            padding: { x: 24, y: 16 },
-        })
-            .setOrigin(0.5)
-            .setDepth(3000);
+        this.applyGameOverUi();
         this.showToast('游戏结束：守住大本营失败', '#8b3a3a');
     }
     onDayEnd() {

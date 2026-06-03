@@ -24,6 +24,23 @@ export class BarrierSystem {
         }
         this.barriers.clear();
     }
+    collectSaveEntries() {
+        const out = [];
+        for (const s of this.barriers.values()) {
+            if (!s.card.active)
+                continue;
+            out.push({ card: s.card, hp: s.hp, maxHp: s.maxHp });
+        }
+        return out;
+    }
+    applySaveHp(card, hp, maxHp) {
+        const s = this.barriers.get(card);
+        if (!s)
+            return;
+        s.maxHp = maxHp;
+        s.hp = Phaser.Math.Clamp(hp, 0, maxHp);
+        s.hpBar.setRatio(s.maxHp > 0 ? s.hp / s.maxHp : 0);
+    }
     tryRegister(card) {
         if (this.barriers.has(card))
             return;

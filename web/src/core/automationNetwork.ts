@@ -6,7 +6,20 @@ import type { AutomationConfig } from './automationConfig';
 
 import { getLogisticsRole, parseLinkRules, type LinkConnectionRule } from './linkRules';
 
+import {
+  buildProximityEdgesStable,
+  type AutomationEdgeLite,
+  type BuildEdgeOptions,
+} from './automationNetworkEdges';
+
 import type { LogisticsDevice } from './sortHandRules';
+
+export {
+  buildProximityEdgesStable,
+  diffAutomationEdges,
+  deviceDist,
+} from './automationNetworkEdges';
+export type { AutomationEdgeLite, BuildEdgeOptions, EdgeDiff } from './automationNetworkEdges';
 
 
 
@@ -16,17 +29,7 @@ export const EVENT_AUTOMATION_GRAPH_UPDATED = 'automation-graph-updated';
 
 
 
-export interface AutomationEdge {
-
-  from: LogisticsDevice;
-
-  to: LogisticsDevice;
-
-  fromRole: string;
-
-  toRole: string;
-
-}
+export type AutomationEdge = AutomationEdgeLite;
 
 
 
@@ -39,30 +42,6 @@ export interface AutomationGraph {
   relaySortHands: Map<GameCard, GameCard[]>;
 
   builtAt: number;
-
-}
-
-
-
-function dist(a: LogisticsDevice, b: LogisticsDevice): number {
-
-  return Phaser.Math.Distance.Between(a.card.x, a.card.y, b.card.x, b.card.y);
-
-}
-
-
-
-function outKey(fromId: string, toRole: string): string {
-
-  return `${fromId}→${toRole}`;
-
-}
-
-
-
-function inKey(toId: string, fromRole: string): string {
-
-  return `${toId}←${fromRole}`;
 
 }
 
@@ -102,98 +81,7 @@ export function collectLogisticsDevices(scene: Phaser.Scene): LogisticsDevice[] 
 
 
 
-function sorterTotalInKey(toId: string): string {
-  return `sorter:in:${toId}`;
-}
-
-function hasSorterDownstream(edges: AutomationEdge[], sorterId: string): boolean {
-  return edges.some((e) => e.from.id === sorterId && e.fromRole === 'logistics_sorter');
-}
-
-/** 分拣手下游只连最近的一个目标 */
-function attachSorterDownstreams(
-  devices: LogisticsDevice[],
-  edges: AutomationEdge[],
-  rules: LinkConnectionRule[],
-  linkRadius: number,
-): void {
-  const downRules = rules.filter((r) => r.from === 'logistics_sorter');
-  for (const sorter of devices.filter((d) => d.role === 'logistics_sorter')) {
-    if (hasSorterDownstream(edges, sorter.id)) continue;
-
-    let best: { to: LogisticsDevice; rule: LinkConnectionRule; d: number } | null = null;
-    for (const rule of downRules) {
-      for (const to of devices.filter((d) => d.role === rule.to)) {
-        if (to.card === sorter.card) continue;
-        const d = dist(sorter, to);
-        if (d > linkRadius) continue;
-        if (!best || d < best.d) best = { to, rule, d };
-      }
-    }
-    if (!best) continue;
-
-    const inn = edges.filter((e) => e.to.id === best.to.id && e.fromRole === best.rule.from).length;
-    if (inn >= best.rule.maxIn) continue;
-
-    edges.push({
-      from: sorter,
-      to: best.to,
-      fromRole: best.rule.from,
-      toRole: best.rule.to,
-    });
-  }
-}
-
-export function buildProximityEdges(
-  devices: LogisticsDevice[],
-  rules: LinkConnectionRule[],
-  linkRadius: number,
-): AutomationEdge[] {
-  const edges: AutomationEdge[] = [];
-  const outCount = new Map<string, number>();
-  const inCount = new Map<string, number>();
-  const sortedRules = [...rules].sort((a, b) => b.priority - a.priority);
-
-  for (const rule of sortedRules) {
-    if (rule.from === 'logistics_sorter') continue;
-
-    const fromList = devices.filter((d) => d.role === rule.from);
-    const toList = devices.filter((d) => d.role === rule.to);
-    for (const from of fromList) {
-      const candidates = toList
-        .filter((to) => to.card !== from.card)
-        .map((to) => ({ to, d: dist(from, to) }))
-        .filter((x) => x.d <= linkRadius)
-        .sort((a, b) => a.d - b.d);
-
-      for (const { to } of candidates) {
-        const oKey = outKey(from.id, rule.to);
-        const iKey = inKey(to.id, rule.from);
-        const out = outCount.get(oKey) ?? 0;
-        const inn = inCount.get(iKey) ?? 0;
-        if (out >= rule.maxOut || inn >= rule.maxIn) continue;
-
-        if (to.role === 'logistics_sorter') {
-          if ((inCount.get(sorterTotalInKey(to.id)) ?? 0) >= 1) continue;
-        }
-
-        if (edges.some((e) => e.from.id === from.id && e.to.id === to.id)) continue;
-
-        edges.push({ from, to, fromRole: rule.from, toRole: rule.to });
-        outCount.set(oKey, out + 1);
-        inCount.set(iKey, inn + 1);
-        if (to.role === 'logistics_sorter') {
-          inCount.set(sorterTotalInKey(to.id), 1);
-        }
-      }
-    }
-  }
-
-  attachSorterDownstreams(devices, edges, rules, linkRadius);
-  return edges;
-}
-
-
+export { buildProximityEdges } from './automationNetworkEdges';
 
 /** 传送节点 → 分拣手（图边，可多条并行） */
 
@@ -356,11 +244,21 @@ export function buildAutomationGraph(
 
   rules: LinkConnectionRule[],
 
+  opts?: BuildEdgeOptions,
+
 ): AutomationGraph {
 
   const devices = collectLogisticsDevices(scene);
 
-  const edges = buildProximityEdges(devices, rules, config.linkRadius);
+  const prevGraph = scene.registry.get(REGISTRY_AUTOMATION_GRAPH) as AutomationGraph | undefined;
+
+  const prevEdges = opts?.prevEdges ?? prevGraph?.edges ?? [];
+
+  const edges = buildProximityEdgesStable(devices, rules, config.linkRadius, {
+    prevEdges,
+    moverIds: opts?.moverIds,
+    dragPositions: opts?.dragPositions,
+  });
 
   const relaySortHands = new Map<GameCard, GameCard[]>();
 

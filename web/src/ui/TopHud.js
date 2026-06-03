@@ -235,7 +235,11 @@ export default class TopHud extends Phaser.GameObjects.Container {
     }
     startDayCycle(onDayEnd) {
         this.onDayEnd = onDayEnd;
-        this.remaining = this.scene.registry.get(REGISTRY.DAY_SECONDS);
+        const total = this.scene.registry.get(REGISTRY.DAY_SECONDS);
+        const savedRemaining = this.scene.registry.get(REGISTRY.DAY_REMAINING);
+        // 0 means day just ended; do not resume at 0 or the next tick fires day-end again.
+        this.remaining =
+            savedRemaining != null && savedRemaining > 0 ? savedRemaining : total;
         this.dayEvent?.remove();
         this.dayEvent = this.scene.time.addEvent({
             delay: 1000,
@@ -254,7 +258,9 @@ export default class TopHud extends Phaser.GameObjects.Container {
     advanceDay() {
         const idx = this.scene.registry.get(REGISTRY.DAY_INDEX) + 1;
         this.scene.registry.set(REGISTRY.DAY_INDEX, idx);
-        this.remaining = this.scene.registry.get(REGISTRY.DAY_SECONDS);
+        const total = this.scene.registry.get(REGISTRY.DAY_SECONDS);
+        this.remaining = total;
+        this.scene.registry.set(REGISTRY.DAY_REMAINING, total);
         if (this.onDayEnd)
             this.startDayCycle(this.onDayEnd);
     }
@@ -272,6 +278,15 @@ export default class TopHud extends Phaser.GameObjects.Container {
     }
     getDayRemaining() {
         return this.remaining;
+    }
+    getSpeedLevel() {
+        return this.speedLevel;
+    }
+    restoreDayState(dayIndex, dayRemaining) {
+        this.scene.registry.set(REGISTRY.DAY_INDEX, dayIndex);
+        this.remaining = Math.max(0, dayRemaining);
+        this.scene.registry.set(REGISTRY.DAY_REMAINING, this.remaining);
+        this.refreshDay();
     }
     destroy(fromScene) {
         this.dayEvent?.remove();

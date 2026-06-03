@@ -1,7 +1,7 @@
 # 物流自动化 V2 · 方案与实现溯源
 
-> **文档版本**：2026-05-30  
-> **对应代码**：`web/` 下 TypeScript 源（构建入口 `npm run build`）  
+> **文档版本**：2026-06-03  
+> **对应代码**：`web/` 下 TypeScript 源（`npm run build` / `npm test`）  
 > **关联文档**：[facility-craft-design.md](facility-craft-design.md)（工房叠牌合成）、[game-implementation.md](game-implementation.md)
 
 ---
@@ -14,7 +14,12 @@
 | V1 | 增加 `auto_sorter` 分类器 + 白名单规则 | 已从卡组移除 |
 | V1.5 | 工房单击 `FacilityPanel` 选生产配方 + `preferredRecipeId` | 已移除 |
 | **V2（当前）** | **分拣手** 选配方/原料 → 连边供料；仓储/分拣手 HTML 网格 UI | **已实现** |
-| V2.1 | 连边视觉升级（折线/箭头/角色色/物流包动画）+ 拖拽预览 + 仓储不叠牌 | **已实现** |
+| V2.1 | 连边视觉（折线/箭头/角色色）+ 拖拽范围预览 + 仓储不叠牌 | **已实现** |
+| **V2.2** | **稳定建图**（incumbent 锁定 + mover 抢占）+ 拖拽 diff 预览 + `linkHints` 文案 | **已实现** |
+| **V3** | **Relay 总线**：按传送聚合包裹；通用路径判定；储物棚/投放仓储经传送支持卖/存/供料；`depot→relay` | **已实现** |
+| **V3.1** | **禁止储物棚↔工房直连**；供料须经 `warehouse → relay → 分拣手(feed) → 工房` | **已实现** |
+| **V3.2** | 同一储物棚最多 **4** 条分拣手入边（`sorter→warehouse` `maxIn:4`），支持多路存仓汇入 | **已实现** |
+| **V3.3（当前）** | 分拣手下游按 **sortMode** 建边（存仓只连储物棚）；工房产出仅在有可投递分拣手时吸收 | **已实现** |
 
 **核心决策（V2）**
 
@@ -22,8 +27,9 @@
 2. **连边拓扑配置化**：`link_rules.json` 定义合法角色与出入度，邻近自动建图。
 3. **数值与半径配置化**：`automation.json` 统一 `linkRadius`、`pickupRadius`、`tick` 等。
 4. **UI 与商店对齐**：仓储、分拣手使用 HTML 卡牌网格 + Phaser 图标纹理（`cardIconDom`）。
-5. **连边视觉配置化**：`link_visual.json` 定义角色配色、箭头、虚线、物流包圆点等；禁止在渲染代码硬编码 cardId。
+5. **连边视觉配置化**：`link_visual.json` 定义角色配色、箭头、虚线、拖拽 hint 等；禁止在渲染代码硬编码 cardId。
 6. **仓储只显示底牌**：入库物资保留 stack 数据，棋盘上不叠物理牌，由 `StorageHud` 摘要 + 面板查看。
+7. **拖拽可预期（V2.2）**：仅 **正在被拖的物流设备** 可抢占已满 slot；其它设备位置变化不会静默抢边；**预览与松手共用同一套 stable 建图**。
 
 ---
 
@@ -35,73 +41,76 @@
 地面资源
   → 收集探头（拾取）
   → 传送节点（中继）
-  → 投放仓储（入库）
-  → 分拣手（按所选配方/原料筛选）
-  → 锈蚀工房等（autoFeed 自动叠料合成）
+  → 分拣手（卖出/买入/存仓/供料 等模式）
+  → 投放仓储 / 商店 / 储物棚 / 生产设施 …
 ```
 
-- 可摆 **多条**「收集 → 传送 → 仓储」并行入库。
-- 每条链路的 **分拣手 → 工房** 独立配置。
-- 工房仍按 **堆料 + 配方表** 自动匹配合成（`CraftStationSystem` + `findFacilityRecipe`），**不再**单击工房选配方。
+- 可摆 **多条** 并行链（收集入库、储物棚出库、工房产出回传等）。
+- 分拣手 **模式**（`sortMode`）决定下游目标角色：商店、储物棚、工房等。
+- 工房仍按 **堆料 + 配方表** 自动匹配合成（`CraftStationSystem` + `findFacilityRecipe`）。
 
 ### 2.2 连边规则与视觉
 
-- 设备 **中心距 ≤ `linkRadius`（220px）** 时自动连边（逻辑见 `buildProximityEdges`）。
-- **连线渲染**（`ConveyorLinkRenderer` + `link_visual.json`）：
-  - **L 型折线**（水平/垂直优先，减少交叉），**方向箭头**标出物流流向。
-  - **按角色配色**（配置键 `fromRole→toRole`）：
+- 设备 **中心距 ≤ `linkRadius`（220px）** 时参与建图（逻辑见 `buildProximityEdgesStable`，§3.3）。
+- **棋盘连线**（`ConveyorLinkRenderer` + `link_visual.json`）：
+  - **L 型折线** + **方向箭头**；按 `edgeStyles` 中 `fromRole→toRole` 配色。
+  - **有效链**（`isAutomationEdgeActive` / `isSourceRelayPathActive`）：源→传送→分拣手(模式匹配下游) 完整时实线、高 alpha。
+  - **无效边**（有拓扑但未形成完整 active chain）：降 alpha（`inactiveAlpha`）。
+  - **物流包**：链上 packet 沿边插值圆点；阻塞时 `blockedColor`。
+- **合法连接类型** 以 `link_rules.json` 为准（节选）：
 
-    | 连接 | 默认色 | 含义 |
-    |------|--------|------|
-    | 收集 → 传送 | `#5a9a68` 绿 | 入库链起点 |
-    | 传送 → 仓储 | `#6a8ab8` 蓝 | 中继 |
-    | 仓储 → 分拣手 | `#b89458` 琥珀 | 出库 |
-    | 分拣手 → 工房 | `#9a7ab8` 紫 | 供料 |
+  | from | to | 说明 |
+  |------|-----|------|
+  | `logistics_collect` | `auto_relay` | 收集 → 传送 |
+  | `auto_relay` | `logistics_sorter` | 传送 → 分拣手（分拣手总入度 1） |
+  | `logistics_sorter` | `shop` / `warehouse` / `logistics_facility` / `logistics_depot` | 分拣下游；**同一储物棚最多 4 个分拣手入边**（多路存仓） |
+  | `warehouse` | `auto_relay` | 储物棚出库（须经传送+分拣手供料） |
+  | `logistics_facility` | `auto_relay` | 工房产出回传 |
+  | `logistics_depot` | `auto_relay` | 投放仓储 → 传送 |
+  | `logistics_depot` | `logistics_facility` | 投放仓储直供工房 |
 
-  - **状态线型**：
-    - **就绪链**（两端均不在 `unlinked`）：实线、高 alpha。
-    - **无效/待补链**（有边但未入 active chain）：虚线、降 alpha（`inactiveAlpha`）。
-    - **拖拽预览**（涉及正在拖动的设备）：蓝色虚线预览（`previewEdgeColor`）；拖拽时 **实时** `buildAutomationGraph` 重算拓扑，松手前即可见连/断变化。
-  - **物流包**：链上 `packet` 沿边插值绘制小圆点（`packetDotSize`）；`blocked` 时变红静止（`blockedColor`）。
-  - **待连边设备**：卡牌外 **琥珀色正弦脉冲圈**（`endpointColor` + `endpointPulseMs`）；**正在拖拽的卡不画此圈**，避免与范围预览叠层。
-- 合法有向连接（见 §4.1）：
-  - `logistics_collect` → `auto_relay`
-  - `auto_relay` → `logistics_depot`
-  - `logistics_depot` → `logistics_sorter`
-  - `logistics_sorter` → `logistics_facility`
+### 2.3 拖拽连边预览（V2.2）
 
-### 2.3 范围显示（仅拖拽）
-
-| 设备 | 拾取范围 | 连边范围 | 说明 |
+| 设备 | 拾取范围 | 连边范围 | 预览 |
 |------|----------|----------|------|
-| 收集探头 | 淡绿填充 182px | 单圈蓝线 220px | 同时显示时 **只画一条蓝圈 + 淡绿底**，不再叠多层装饰圈 |
-| 传送 / 仓储 / 分拣手 | 无 | 单圈蓝线 220px | 范围内合法目标显示 **候选高亮圈** |
-| 工房 / 炮塔等 | 不显示物流圈 | 不显示物流圈 | — |
+| 收集探头 | 淡绿填充 182px | 蓝圈 220px | 见下表 |
+| 传送 / 仓储 / 分拣手 / 储物棚 / 工房等 | 无 | 蓝圈 220px | 见下表 |
+| 非物流卡 | — | — | 无物流预览 |
 
-实现：`CardDragSystem.updateRangePreviews` + `CollectorRangePreview` + `ConveyorLinkRenderer.setDragPreview`。
+实现：`CardDragSystem.updateRangePreviews` → `computeLogisticsDragSnapshot` → `LogisticsRangePreview` + `StackDropHint`。
 
-- **放置后无常驻圈**（已移除 `CollectorRangeOverlay`）。
-- **拖拽提示**（`StackDropHint`）：`getAutomationLinkHint` 按缺口角色与距离输出，如「靠近传送器还差 32px」「范围内有传送器，松手即可连接」（文案用 `link_visual.json` → `roleLabels`）。
+| 预览状态 | 视觉 | 文案（`link_visual.json` → `linkHints`） |
+|----------|------|------------------------------------------|
+| 将新增/保持连边 | 实线 + 箭头；**新增**目标 **琥珀高亮圈** | `willConnect` / `inRangeConnect` |
+| 将断开 | **红色虚线**（`breakEdgeColor`） | `willDisconnect` |
+| 槽位被占无法连 | **暗红虚线** + 灰色候选圈 | `slotTaken` |
+| 最近目标在圈外 | 仅蓝圈 + hint | `tooFar`（`{distance}` = 还差 px） |
 
-**曾有问题（已修复）**：拾取/连边各画双圈 + 待连边脉冲圈 + 拖拽圈叠在一起，同心圆过多；现每层最多一条线，拖拽卡隐藏脉冲圈。
+- **放置后无常驻拾取/连边圈**。
+- **拖拽中棋盘折线**：`AutomationSystem` 在 `automation-graph-refresh-request` 下 ~12Hz 用 mover 坐标重算图（`REGISTRY_AUTOMATION_GRAPH`），`ConveyorLinkRenderer` 同步更新。
+- **预览 = 松手**：`computeLogisticsDragSnapshot` 与 `buildAutomationGraph(..., dragOpts)` 使用同一 `buildProximityEdgesStable` 路径。
 
-### 2.4 仓储面板与牌面展示
+### 2.4 连边抢占（玩家可预期规则）
 
-- 单击仓储底牌 → HTML 面板（与商店同布局：4 列网格、卡牌色块 + **图标**）。
-- **左键拖卡牌到牌桌** → 按当前数量设置取出（与商店拖购一致，Phaser 幽灵卡）。
-- **右键卡牌** → 一次取满该种类。
-- **`− / +`** → 调整本次拖出数量。
-- **棋盘叠牌**：入库物资 **不在仓储底牌上叠物理牌**（`CardStackSystem.layoutStack` 对 `isStorageMember` 设 `visible=false`）；库存仍存于 stack.members，**`StorageHud`** 在底牌下方显示容量条与摘要（如 `零件×4 · 2/16`）。自动化 `deliverToWarehouse` / `pullFromStorageMember` 逻辑不变。
+| 场景 | 行为 |
+|------|------|
+| 两个收集器争一个传送器 | **未拖动**时：先连上的（incumbent）保持，更近者 **不会** 静默抢边 |
+| 拖动收集器靠近已被占用的传送器 | **更近** 则松手后抢占；否则预览 **slotTaken** + 暗红虚线 |
+| 两个传送器争一个分拣手 | 非 mover 不抢；mover 传送器 **更近** 可抢分拣手入边 |
+| 拖动分拣手在多个工房间 | mover 分拣手可改连 **更近** 的工房下游 |
+| 拖出 `linkRadius` | 预览断链（红虚线），松手后该设备相关边移除 |
 
-### 2.5 分拣手面板
+### 2.5 仓储面板与牌面展示
 
-- 单击分拣手底牌 → HTML 配方网格。
-- 读取 **已连接工房** 的 `stationId`，列出该工房 **全部可用配方**（过滤 `dayMin`）。
-- 每张卡：**产出物图标/名称**；下方 **原料摘要**（如 `零件×2 + 木板×1`）。
-- 点击配方 → 写入分拣手的 `sortFilterCardId` = 该配方 **第一个带 `cardId` 的 input**。
-- 未连工房 → 提示「请先将分拣手靠近工房」。
+- 单击仓储底牌 → HTML 面板（4 列网格、图标）。
+- **左键拖出** / **右键取满** / **`− / +`** 调整数量。
+- 棋盘上 **仅底牌 + `StorageHud` 摘要**；`stack.members` 隐藏不挡点击。
 
-> **与概念稿差异**：部分 UI 稿（如牌面旁常驻「分拣手 N 级 / 物品 / 连接到…」）**当前未实现**；状态仅在打开面板或物流 toast 中体现。牌面等级系统未接入。
+### 2.6 分拣手面板
+
+- 单击分拣手 → 配方/商店列表（依 `sortMode` 与已连目标）。
+- `sortFilterCardId`、`sortMode`、`sortHandWeight` 存于 `GameCard` data。
+- 未连目标 → 面板/ toast 提示先连边。
 
 ---
 
@@ -115,90 +124,110 @@ flowchart TB
     LR[link_rules.json]
     LV[link_visual.json]
     AC[automation.json]
-    DA[deck_automation.json]
-    RF[recipes/facility.json]
   end
 
   subgraph core [核心]
+    ANE[automationNetworkEdges.ts]
     AN[automationNetwork.ts]
-    CLV[conveyorLinkVisual.ts]
+    LDC[logisticsDragContext.ts]
+    LDS[logisticsLinkDragSnapshot.ts]
+    LRP[logisticsRangePreview.ts]
     LVC[linkVisualConfig.ts]
     AS[AutomationSystem.ts]
     SH[sortHandRules.ts]
-    AD[automationDelivery.ts]
-    SI[storageInventory.ts]
-    CSS[CardStackSystem.ts]
   end
 
   subgraph ui [UI]
     CLR[ConveyorLinkRenderer]
-    CRP[CollectorRangePreview]
-    SHUD[StorageHud]
-    SP[StoragePanel]
-    SHP[SortHandPanel]
-    CID[cardIconDom.ts]
+    LRV[LogisticsRangePreview]
+    CDS[CardDragSystem]
+    SHINT[StackDropHint]
   end
 
+  LR --> ANE
   LR --> AN
-  LV --> CLR
-  LV --> CLV
+  LV --> LVC
+  LV --> LRV
+  LV --> LDS
   AC --> AN
   AC --> AS
-  DA --> AN
-  RF --> SH
+  ANE --> AN
   AN --> AS
-  AN --> CLV
-  CLV --> CLR
-  SH --> AS
-  SH --> SHP
-  AD --> AS
-  SI --> SP
-  SI --> CSS
-  CSS --> SHUD
   AN --> CLR
-  CID --> SP
-  CID --> SHP
+  LDC --> LDS
+  LDC --> CDS
+  LDS --> LRP
+  LDS --> CDS
+  LRP --> LRV
+  CDS --> LRV
+  CDS --> SHINT
+  AS --> AN
+  CDS --> AS
 ```
 
 ### 3.2 每 tick 顺序（`AutomationSystem.tick`）
 
-1. `rebuildChains()` — 邻近建图，缓存至 `REGISTRY_AUTOMATION_GRAPH`
-2. `runCollectors()` — 收集探头吸地面资源 → 生成 packet
-3. `runHops()` — packet 沿边多跳；到仓储则 `deliverToWarehouse`；到工房则 `deliverToCraftStation`；经分拣手时校验 `sortFilterCardId`
-4. `runSortHandTransfers()` — 分拣手→工房：从 **上游仓储** `pullFromStorageMember`，再 `deliverToCraftStation`（每 tick 上限 `maxPullPerTick`）
-5. `emitLaneStatus()` — 传送状态 toast 源
+1. `rebuildChains()` — stable 建图 → `REGISTRY_AUTOMATION_GRAPH`
+2. `runCollectors()` — 收集 → packet
+3. `runHops()` — packet 多跳；分拣手校验 `sortFilterCardId` / `sortMode`
+4. `runSortHandTransfers()` / `runBuyTick` / `runDepotFeed` 等 — 依链类型
+5. `emitLaneStatus()` — 传送 toast
 
-### 3.3 图构建要点（`buildProximityEdges`）
+### 3.3 稳定建图（`buildProximityEdgesStable`）
 
-- 设备集合：`collectLogisticsDevices`（automation 建筑 + `logistics_facility` 工房）。
-- 角色解析：`getLogisticsRole(tags)` — **必须**包含 `logistics_sorter`，否则分拣手无法连边（2026-05-30 修复项）。
-- 按 `priority` 排序规则，贪心连最近候选，检查 `maxOut` / `maxIn`、防环。
-- 收集链入队条件：从收集器 BFS 可达 **传送 + 仓储**。
+文件：`web/src/core/automationNetworkEdges.ts`（纯逻辑，**Vitest 覆盖**）。
 
-### 3.4 分拣手状态存储
+**Phase A — Incumbent 锁定**
+
+- 输入 `prevEdges`（上一帧图）。
+- 若两端仍在 `linkRadius` 内、角色规则仍合法 → **保留**该边，占用对应 `maxIn` / `maxOut` 计数。
+
+**Phase B — 填充与抢占**
+
+- 按 `link_rules` 的 `priority` 降序处理（`logistics_sorter` 下游单独 `attachSorterDownstreams`）。
+- **非 mover**：仅使用空闲 slot，不抢 incumbent。
+- **mover**（`moverIds` + `dragPositions`）：`maxIn` / `maxOut` 已满时，若比 incumbent **更近** 则移除 incumbent 并连上。
+
+**分拣手下游**：已有下游且仍在范围内 → 锁定；mover 分拣手可对 **更近** 工房/仓储等切换下游。
+
+**运行时入口**：`buildAutomationGraph` 始终调用 stable；`prevEdges` 来自 registry 当前图。
+
+### 3.4 拖拽快照（`computeLogisticsDragSnapshot`）
+
+文件：`web/src/core/logisticsLinkDragSnapshot.ts`。
+
+```
+prevEdges (registry)
+  + devices (scene)
+  + dragOpts (moverIds, dragPositions)
+  → buildProximityEdgesStable → nextEdges
+  → diffAutomationEdges → added / removed
+  → findBlockedLinks → blocked
+  → active = next 中涉及 mover 的边
+  → buildDragHint → StackDropPreview
+```
+
+### 3.5 事件与刷新
+
+```
+stack-changed / card-spawned / card-removed / card-rotated / card-drag-end
+  → AutomationSystem.scheduleRebuild()
+  → rebuildChains()  // 若正在拖拽，合并 drag.getLogisticsDragContext()
+
+CardDragSystem.applyDrag (物流卡)
+  → computeLogisticsDragSnapshot → LogisticsRangePreview + StackDropHint
+  → automation-graph-refresh-request（~80ms 节流）
+  → rebuildChains() + automation-graph-updated
+  → ConveyorLinkRenderer.draw()
+```
+
+### 3.6 分拣手状态存储
 
 | 键 | 位置 | 含义 |
 |----|------|------|
-| `sortFilterCardId` | `GameCard.setData`（`SORT_FILTER_CARD_KEY`） | 当前要分拣/供料的 **原料 cardId** |
-
-不写入 JSON 存档字段；随场景内卡牌实例存在。
-
-### 3.5 连边渲染数据流（V2.1）
-
-```
-stack-changed / card-spawned / automation-graph-updated
-  → ConveyorLinkRenderer.scheduleRefresh()
-  → computeAutomationLinks(scene, config, dragPreview?)
-       ├─ 常态：readAutomationGraph(registry)
-       └─ 拖拽：buildAutomationGraph(实时坐标)
-  → ConveyorLinkRenderer.drawGraphics()  // 50ms 动画 tick 亦会重绘
-
-CardDragSystem 拖拽 logistics 卡
-  → setDragPreview(card) + CollectorRangePreview(单圈 + candidates)
-  → getAutomationLinkHint → StackDropHint
-```
-
-快照类型：`AutomationLinkSnapshot`（`edges` / `unlinked` / `previewEdges`）。边状态：`active` | `inactive` | `preview`；packet 进度来自 `chain.packets[].hopTimer / linkTransitSeconds`。
+| `sortFilterCardId` | `GameCard` data | 分拣/供料目标 `cardId` |
+| `sortMode` | `GameCard` data | `sell` / `buy` / `store` / `feed` |
+| `sortHandWeight` | `GameCard` data | 多分拣手分流权重 |
 
 ---
 
@@ -206,174 +235,165 @@ CardDragSystem 拖拽 logistics 卡
 
 ### 4.1 `web/public/data/logistics/link_rules.json`
 
-```json
-{
-  "connections": [
-    { "from": "logistics_collect", "to": "auto_relay", "maxOut": 1, "maxIn": 1 },
-    { "from": "auto_relay", "to": "logistics_depot", "maxOut": 1, "maxIn": 4 },
-    { "from": "logistics_depot", "to": "logistics_sorter", "maxOut": 1, "maxIn": 1 },
-    { "from": "logistics_sorter", "to": "logistics_facility", "maxOut": 2, "maxIn": 2 }
-  ]
-}
-```
-
-角色 tag 与卡牌对应见 §5.1。
+完整规则见仓库内文件；每条含 `maxOut`、`maxIn`、`priority`。修改后需与卡组 tag 一致（§9 检查清单）。
 
 ### 4.2 `web/public/data/logistics/automation.json`
 
 | 字段 | 默认 | 说明 |
 |------|------|------|
 | `linkRadius` | 220 | 连边距离（px） |
-| `collectorPickupRadius` | 182 | 收集默认拾取半径（卡面可覆盖） |
-| `tickSeconds` | 1.2 | 物流 tick 间隔 |
-| `linkTransitSeconds` | 1.5 | packet 每跳停留时间 |
-| `maxPacketsPerChain` | 6 | 单链最大在途包 |
-| `maxPullPerTick` | 1 | 分拣手→工房每 tick 供料次数 |
+| `collectorPickupRadius` | 182 | 收集默认拾取半径 |
+| `tickSeconds` | 1.2 | 物流 tick |
+| `linkTransitSeconds` | 1.5 | packet 每跳时间 |
+| `maxPacketsPerRelay` | 6 | 单传送节点在途包上限 |
+| `maxInjectPerRelayPerTick` | 1 | 每 tick 每传送最多注入包数 |
+| `sourceInjectPriority` | 工房>棚>投放>收集 | 多源争用时的入站顺序 |
+| `packetBlockedPurgeTicks` | 12 | 阻塞包裹丢弃 tick 数 |
+| `maxPullPerTick` | 1 | 分拣手直连供料（绕过 packet）次数上限 |
 
 Registry：`REGISTRY_AUTOMATION_CONFIG`。
 
 ### 4.3 `web/public/data/logistics/link_visual.json`
 
-连边 **视觉** 配置（与 §4.1 拓扑规则分离）。Registry：`REGISTRY_LINK_VISUAL`。
+Registry：`REGISTRY_LINK_VISUAL`（Preloader key：`logistics_link_visual`）。
 
 | 字段 | 说明 |
 |------|------|
-| `edgeStyles` | 键 `"logistics_collect→auto_relay"` 等 → `{ color, width }` |
-| `activeEdgeColor` / `inactiveEdgeColor` / `previewEdgeColor` | 无专属 `edgeStyles` 时的回退色 |
-| `inactiveAlpha` / `previewAlpha` | 无效边 / 拖拽预览透明度 |
-| `endpointColor` / `endpointPulseMs` | 待连边脉冲圈 |
-| `blockedColor` / `packetDotSize` | 物流包圆点 |
-| `arrowSize` / `dashLength` / `dashGap` | 箭头与虚线 |
-| `roleLabels` | 拖拽/点击 hint 中的角色中文名 |
+| `edgeStyles` | `"fromRole→toRole"` → `{ color, width }` |
+| `previewEdgeColor` / `previewAlpha` | 拖拽将连上的边 |
+| `breakEdgeColor` / `breakAlpha` | 拖拽将断开的边（红虚线） |
+| `blockedColor` / `blockedCandidateAlpha` | 被占用无法连 |
+| `inactiveAlpha` | 非 active chain 的棋盘边 |
+| `dashLength` / `dashGap` | 虚线参数 |
+| `roleLabels` | 角色中文名（hint 用） |
+| `linkHints` | 拖拽文案模板，支持 `{target}` `{occupant}` `{distance}` `{from}` `{to}` |
 
-解析：`web/src/core/linkVisualConfig.ts` → `parseLinkVisual`。
+| `linkHints` 键 | 默认含义 |
+|----------------|----------|
+| `willConnect` | 松手后将连接 |
+| `willDisconnect` | 将断开某条边 |
+| `slotTaken` | 目标已被占用 |
+| `tooFar` | 靠近目标还差 N px |
+| `inRangeConnect` | 范围内可连，松手即可 |
 
-### 4.4 自动化卡组 `deck_automation.json`（4 张）
+解析：`linkVisualConfig.ts` → `parseLinkVisual`、`formatLinkHint`。
 
-| id | 名称 | 物流角色 tag | 关键 effect |
-|----|------|--------------|-------------|
-| `auto_collector` | 收集探头 | `logistics_collect` | `auto_collector.pickupRadius: 182` |
-| `auto_receiver` | 传送节点 | `auto_relay` | `auto_relay` |
-| `auto_sort_hand` | 分拣手 | `logistics_sorter` | `sort_hand.blockUnmatched: true` |
-| `auto_chest` | 投放仓储 | `logistics_depot` + `warehouse` | `auto_storage.maxStored: 16` |
+### 4.4 自动化卡组 `deck_automation.json`
 
-### 4.5 工房侧
-
-- 卡牌：`deck_facility.json` 中 `facility_workshop` 等带 `logistics_facility` + `craft_station`。
-- 自动供料：`effects.autoFeed: true`，`feedPerTick` 可覆盖全局。
-- 配方：`recipes/facility.json`，按 `stationId` 与 `dayMin` 过滤。
+| id | 物流角色 | 说明 |
+|----|----------|------|
+| `auto_collector` | `logistics_collect` | 拾取地面资源 |
+| `auto_receiver` | `auto_relay` | 中继 |
+| `auto_sort_hand` | `logistics_sorter` | 分拣/买卖/供料 |
+| `auto_chest` | `logistics_depot` + `warehouse` | 投放仓储 |
 
 ---
 
-## 5. 代码地图（影响文件）
+## 5. 代码地图
 
 ### 5.1 核心逻辑
 
 | 路径 | 职责 |
 |------|------|
-| `web/src/core/linkRules.ts` | 连边规则解析、`getLogisticsRole` |
-| `web/src/core/linkVisualConfig.ts` | `link_visual.json` 解析、`hexToNumber`、`edgeStyleKey` |
-| `web/src/core/conveyorLinkVisual.ts` | 连边快照、`computeAutomationLinks`、packet 可视化、`getAutomationLinkHint` |
-| `web/src/core/automationNetwork.ts` | 建图、链、边查询、`previewProximityEdges`、`getMissingLinkHint` |
-| `web/src/core/automationConfig.ts` | 数值配置 parse |
-| `web/src/core/automationDelivery.ts` | 入仓、入工房、`stationNeedsCard`、`facilityAutoFeedEnabled` |
-| `web/src/core/sortHandRules.ts` | 分拣偏好、`listSortRecipesForHand`、`getLinkedFacilityForSortHand` |
-| `web/src/core/storageInventory.ts` | 仓储成员、`withdrawFromStorage`（支持指定落点 `at`） |
-| `web/src/systems/AutomationSystem.ts` | tick 主循环 |
-| `web/src/systems/CraftStationSystem.ts` | 工房合成（`findFacilityRecipe`，无 preferred 分支） |
-| `web/src/systems/SortHandBuildingSystem.ts` | 单击分拣手 → `sort-hand-panel-open` |
-| `web/src/systems/StorageBuildingSystem.ts` | 单击仓储 → `storage-panel-open` |
-| `web/src/systems/CardStackSystem.ts` | 叠牌布局；仓储 `isStorageMember` **隐藏**、`visibleStackMembers` 修正 hit/ pile  bounds |
-| `web/src/systems/CardDragSystem.ts` | 物流范围预览、`setDragPreview`、~12Hz 连边刷新 |
+| `web/src/core/automationNetworkEdges.ts` | `buildProximityEdges`、`buildProximityEdgesStable`、`diffAutomationEdges`、`deviceDist` |
+| `web/src/core/automationNetworkEdges.test.ts` | stable / 抢占单元测试 |
+| `web/src/core/automationNetwork.ts` | `buildAutomationGraph`、`collectLogisticsDevices`、链有效性、边查询 |
+| `web/src/core/logisticsDragContext.ts` | `logisticsDeviceId`、`buildLogisticsDragOptions` |
+| `web/src/core/logisticsLinkDragSnapshot.ts` | `computeLogisticsDragSnapshot`、blocked 检测、hint 生成 |
+| `web/src/core/logisticsRangePreview.ts` | `getLogisticsRangeSpec`、`findLogisticsPreviewLinksStable` |
+| `web/src/core/linkRules.ts` | 规则解析、`getLogisticsRole` |
+| `web/src/core/linkVisualConfig.ts` | 视觉配置解析、`formatLinkHint` |
+| `web/src/core/automationConfig.ts` | 数值配置 |
+| `web/src/core/automationDelivery.ts` | 入仓、入工房、packet 投递 |
+| `web/src/core/sortHandRules.ts` | 分拣模式、配方列表、边查询封装 |
+| `web/src/systems/AutomationSystem.ts` | tick、`rebuildChains`、链与 packet |
+| `web/src/systems/CardDragSystem.ts` | 拖拽、`getLogisticsDragContext`、范围预览、~12Hz 图刷新 |
 
 ### 5.2 UI
 
 | 路径 | 职责 |
 |------|------|
-| `web/src/ui/StoragePanel.ts` | 仓储 HTML 网格 + 拖出 |
-| `web/src/ui/SortHandPanel.ts` | 分拣手 HTML 配方网格 |
-| `web/src/ui/TradePanel.ts` | 商店（同套图标 `cardIconDom`） |
-| `web/src/ui/cardIconDom.ts` | Phaser 纹理 → HTML `<img>` |
-| `web/src/ui/StorageHud.ts` | 仓储底牌容量条 + 库存摘要（替代叠牌展示） |
-| `web/src/ui/CollectorRangePreview.ts` | 拾取淡填充 + 单圈连边 + 候选高亮 |
-| `web/src/ui/ConveyorLinkRenderer.ts` | 折线/箭头/虚线/物流包/脉冲；读 `conveyorLinkVisual` 快照 |
-| `web/index.html` | `#storage-panel` / `#sort-hand-panel` 共用 `.trade-panel` 样式 |
+| `web/src/ui/LogisticsRangePreview.ts` | 拾取圈、连边圈、预览/断链/blocked 线 |
+| `web/src/ui/logisticsLinkDraw.ts` | `drawLShapeLink`、`drawDashedLShapeLink`、`drawLinkArrow` |
+| `web/src/ui/ConveyorLinkRenderer.ts` | 棋盘常驻折线（读 registry 图） |
+| `web/src/ui/StackDropHint.ts` | 拖拽浮动文案（含物流 hint） |
+| `web/src/ui/StoragePanel.ts` / `SortHandPanel.ts` | 仓储 / 分拣手 HTML 面板 |
+| `web/src/ui/StorageHud.ts` | 仓储底牌摘要 |
 
-### 5.3 场景与开局
+### 5.3 场景
 
 | 路径 | 职责 |
 |------|------|
-| `web/src/scenes/GameScene.ts` | 挂载系统/面板、`REGISTRY_LINK_VISUAL`、`storagePanel.setPlayfield` |
-| `web/src/scenes/PreloaderScene.ts` | 预加载 `logistics_link_visual.json` |
-| `web/src/config/starterBoardLayout.ts` | 双行「收集→传送→仓→分拣手」+ 分拣手下工房 |
-| `web/public/data/guide/player_guide.json` | 玩家图鉴「物流」章节 |
+| `web/src/scenes/GameScene.ts` | 挂载系统、`REGISTRY_LINK_VISUAL` |
+| `web/src/scenes/PreloaderScene.ts` | 加载 `logistics_link_rules` / `logistics_link_visual` / `logistics_automation` |
 
-### 5.4 已移除 / 遗留未用
+### 5.4 已移除 / 不再使用
 
 | 路径 | 说明 |
 |------|------|
-| `FacilityPanel.ts` / `FacilityBuildingSystem.ts` | 工房选配方 UI — **GameScene 已不挂载** |
-| `craftStationPrefs.ts` / `resolveFacilityCraftMatch` | preferred 配方 — **CraftStation 已改回 `findFacilityRecipe`** |
-| `CollectorRangeOverlay.ts` | 常驻绿圈 — **已停用** |
-| `sorterRules.ts`（`auto_sorter`） | 旧分类器规则 — 无对应卡牌时不走逻辑 |
+| `conveyorLinkVisual.ts` | 未实现；由 `automationNetwork` + `ConveyorLinkRenderer` 替代 |
+| `CollectorRangeOverlay.ts` | 常驻圈已停用 |
+| `FacilityPanel` 选配方 | 已移除 |
 
 ---
 
-## 6. 开局演示布局
-
-`computeStarterLogisticsLayout`（`starterBoardLayout.ts`）：
-
-- **2 行** 并行：`auto_collector → auto_receiver → auto_chest → auto_sort_hand`，间距 `LOGISTICS_HOP = 82`（< 120）。
-- **主行** 分拣手正下方：`facility_workshop`（`anchorCol: 3`）。
-- 地面演示物资 + 主仓 seed `scrap×4`；分拣手默认 `sortFilterCardId = scrap`。
-
----
-
-## 7. 性能与事件约定
+## 6. 性能与事件约定
 
 | 机制 | 说明 |
 |------|------|
-| `REGISTRY_AUTOMATION_GRAPH` + `EVENT_AUTOMATION_GRAPH_UPDATED` | 图缓存，避免 UI 每帧重建 |
-| `AutomationSystem.scheduleRebuild()` | `stack-changed` 等合并到下一帧 |
-| `CardDragSystem.maybeRefreshAutomationLinks()` | 拖拽连边预览 ~12Hz 限流 + `ConveyorLinkRenderer.setDragPreview` |
-| `ConveyorLinkRenderer` | 50ms 动画 tick 重绘 Graphics；拓扑仅在 refresh / 拖拽时重算 |
-| 拖拽中 `computeAutomationLinks(..., dragPreview)` | 调用 `buildAutomationGraph` 实时位置建图 |
-| 仓储隐藏成员 | `layoutStack` + `refreshStorageHuds` 同步 `visible=false`，不参与 `findCardUnder` |
+| `REGISTRY_AUTOMATION_GRAPH` + `automation-graph-updated` | 图缓存；UI 不每帧重建拓扑 |
+| `scheduleRebuild()` | `stack-changed` 等合并到 POST_UPDATE |
+| `automation-graph-refresh-request` | 拖拽物流卡时 ~12Hz 触发 `rebuildChains`（带 `dragOpts`） |
+| `ConveyorLinkRenderer` | 50ms 重绘 Graphics；拓扑随 graph-updated 变 |
+| `npm test` | `automationNetworkEdges.test.ts`、`linkVisualConfig.test.ts` |
 
 ---
 
-## 8. 已知限制与后续可扩展
+## 7. 已知限制与后续可扩展
 
-1. **分拣配方筛选**：仅展示 inputs 中含 **显式 `cardId`** 的配方；纯 `tag` 原料配方不会出现在分拣手面板。
-2. **多原料配方**：点击后只设置 **第一个** `cardId` 为分拣目标；其余原料依赖工房 `autoFeed` 与堆料匹配，或需多次配置/扩展为多选。
-3. **分拣手等级 / 牌面状态 HUD**：概念稿中的「N 级、连接到 XXX」**未实现**；可新增 `StorageHud` 式组件或卡牌 overlay。
-4. **存档**：`sortFilterCardId` 在 `GameCard` data 上，持久化需随存档系统一并序列化。
-5. **图鉴文案**：`player_guide.json` 仓储一节仍写「左键点一行取 1」，与当前 **拖出** 交互略有出入，宜同步改文案。
-6. **连边悬停高亮 / 多链色相 / 分拣出口标签**：V2.1 未做，见早期 polish  backlog。
+1. **分拣配方**：面板仍偏「第一个 `cardId` input」；多原料配方依赖工房 `autoFeed`。
+2. **牌面状态 HUD**：分拣手等级/常驻连接名未做。
+3. **存档**：`sortFilterCardId` / `sortMode` 需随存档序列化。
+4. **图鉴**：`player_guide.json` 仓储交互文案可能与拖出不一致。
+5. **棋盘边 inactive 虚线**：`ConveyorLinkRenderer` 仅区分 active chain alpha，未单独画「待补链」虚线。
+6. **连边悬停高亮 / 分拣出口标签**：未做。
 
 ---
 
-## 9. 变更检查清单（改动物流时）
+## 8. 变更检查清单（改动物流时）
 
-- [ ] `link_rules.json` 角色 tag 与 `deck_automation.json` / `deck_facility.json` 一致
-- [ ] `link_visual.json` 新增连接类型时补 `edgeStyles` 与 `roleLabels`
-- [ ] `getLogisticsRole` 包含新增角色
-- [ ] `AutomationSystem` tick 路径是否需新模块
-- [ ] 分拣/仓储 UI 是否复用 `cardIconDom` + `.trade-panel` 样式
-- [ ] `player_guide.json` / shop / packs 文案与卡组同步
-- [ ] `npm run build` 通过
+- [ ] `link_rules.json` 与卡组 `tags` 一致
+- [ ] 新连接类型补 `link_visual.json` 的 `edgeStyles`、`roleLabels`
+- [ ] 新 hint 场景补 `linkHints` 模板
+- [ ] `getLogisticsRole` 覆盖新角色
+- [ ] `AutomationSystem` tick / 投递路径
+- [ ] `automationNetworkEdges.test.ts` 补抢占用例
+- [ ] `npm test` + `npm run build`
 - [ ] 更新本文档 **文档版本** 与 §1 溯源表
 
 ---
 
+## 9. 综合演示场布局（`test` 模式）
+
+`web/src/config/starterBoardLayout.ts` → `computeStarterLogisticsLayout` 在开局自动生成三条链：
+
+| 链路 | 采集 | 合成设施 | 存仓分拣 | 中枢 |
+|------|------|----------|----------|------|
+| 林木 | 枯木林 + 粗木段 | 锈蚀工房（粗木→木板） | 存入仓库·**全部** | 储物棚 |
+| 纤维 | 锈灌木 + 植物纤维 | 锈蚀工房（纤维→粗麻绳） | 存入仓库·**粗麻绳** | 同上 |
+| 卖出 | — | — | 卖出·**木板** | 储物棚 → 贸易站 |
+
+原则：**每条链独立传送节点**；两条存仓分拣手汇入同一储物棚（`sorter→warehouse` `maxIn:4`）；林木线勿对粗木再开「直接存棚」以免占满 8 格容量。
+
 ## 10. 快速验证步骤
 
-1. 刷新进入游戏 → 底部应有双行物流 + 分拣手下工房，**彩色折线 + 箭头** 连通。
-2. 拖拽 **收集探头** → **淡绿底 + 单条蓝圈**（无多层同心圆）；拖近传送器见 **虚线预览 + 距离 hint**。
-3. 单击 **投放仓储** → 网格带图标；棋盘上 **仅底牌 + 底部容量条**，无资源叠牌；拖卡牌到牌桌取出。
-4. 单击 **分拣手** → 见锈蚀工房配方列表；选配方后 toast「分拣原料：…」。
-5. 地面放零件 → 自动入库（底牌摘要更新）→ 分拣手供料到工房 → 链上可见 **物流包圆点** 移动。
+1. 进入游戏 → 物流链 **彩色折线 + 箭头**；收集/传送/分拣手连通。
+2. 拖 **收集探头** → 淡绿底 + 蓝圈；靠近空传送器 → 琥珀高亮 +「松手后将连接传送节点」。
+3. 第二个收集器靠近 **已被占用** 的传送器 → 暗红虚线 +「已被…占用」；拖近抢边 → 红虚线显示将断开旧边、预览新边。
+4. 拖 **传送节点** 争 **分拣手** → 验证非拖动时不抢、拖动更近时可抢。
+5. 单击 **投放仓储** / **分拣手** → 面板与图标正常；物流包在链上移动。
+6. `cd web && npm test` → 12 tests passed.
 
 ---
 
-*本文档随 V2 物流实现编写，用于需求—配置—代码三方溯源。重大行为变更请在本文件 §1 追加一行并更新版本日期。*
+*本文档用于需求—配置—代码三方溯源。重大行为变更请在本文件 §1 追加一行并更新版本日期。*

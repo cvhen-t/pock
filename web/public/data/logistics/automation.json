@@ -3,6 +3,14 @@
   "collectorPickupRadius": 182,
   "tickSeconds": 1.2,
   "linkTransitSeconds": 1.5,
-  "maxPacketsPerChain": 6,
-  "maxPullPerTick": 1
+  "maxPacketsPerRelay": 6,
+  "maxInjectPerRelayPerTick": 1,
+  "maxPullPerTick": 1,
+  "sourceInjectPriority": [
+    "logistics_facility",
+    "warehouse",
+    "logistics_depot",
+    "logistics_collect"
+  ],
+  "packetBlockedPurgeTicks": 12
 }

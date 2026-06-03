@@ -1,5 +1,6 @@
 import { dataStore } from './DataStore';
 import { getLinkedDepotForSortHand, getSortHandDownstream, } from './automationNetwork';
+import { getRelayDeviceForSortHand, listSourcesOnRelay, } from './automationPath';
 import { getWarehouseInventory, isWarehouseStorable } from './storageInventory';
 export const SORT_FILTER_KEY = 'sortFilterCardId';
 export const SORT_MODE_KEY = 'sortMode';
@@ -129,8 +130,10 @@ export function deriveAvailableModes(graph, sortHand) {
     if (!graph)
         return [];
     const modes = [];
-    if (getSortHandDownstream(graph, sortHand, 'logistics_facility'))
+    if (getSortHandDownstream(graph, sortHand, 'logistics_facility') ||
+        getSortHandDownstream(graph, sortHand, 'logistics_depot')) {
         modes.push('feed');
+    }
     if (getSortHandDownstream(graph, sortHand, 'shop')) {
         modes.push('sell', 'buy');
     }
@@ -161,7 +164,26 @@ export function formatSortHandSummary(card, graph) {
         return `${modeLabel} · 待连接`;
     return `${modeLabel} · ${filterName} → ${targetName}`;
 }
-export function buildStoreGridEntries(sortHand, graph, stacks, allCards, showAllStorable) {
+const STORE_SOURCE_ROLES = ['warehouse', 'logistics_depot'];
+function appendStorageInventoryEntries(entries, seen, storageCard, stacks, qtyLabel) {
+    const stack = stacks.getStackAt(storageCard);
+    if (!stack)
+        return;
+    for (const e of getWarehouseInventory(stack)) {
+        if (seen.has(e.cardId))
+            continue;
+        seen.add(e.cardId);
+        const def = dataStore.getCard(e.cardId);
+        entries.push({
+            key: e.cardId,
+            cardId: e.cardId,
+            title: def?.name ?? e.cardId,
+            subtitle: e.qty > 1 ? `${qtyLabel} ×${e.qty}` : qtyLabel,
+            filterCardId: e.cardId,
+        });
+    }
+}
+export function buildStoreGridEntries(sortHand, graph, stacks, allCards, _showAllStorable) {
     const entries = [
         {
             key: '__all__',
@@ -172,41 +194,32 @@ export function buildStoreGridEntries(sortHand, graph, stacks, allCards, showAll
         },
     ];
     const seen = new Set();
-    const depot = graph ? getLinkedDepotForSortHand(graph, sortHand) : null;
-    if (depot) {
-        const stack = stacks.getStackAt(depot);
-        if (stack) {
-            for (const e of getWarehouseInventory(stack)) {
-                if (seen.has(e.cardId))
-                    continue;
-                seen.add(e.cardId);
-                const def = dataStore.getCard(e.cardId);
-                entries.push({
-                    key: e.cardId,
-                    cardId: e.cardId,
-                    title: def?.name ?? e.cardId,
-                    subtitle: e.qty > 1 ? `仓储 ×${e.qty}` : '仓储有货',
-                    filterCardId: e.cardId,
-                });
-            }
+    const relayDev = graph ? getRelayDeviceForSortHand(graph, sortHand) : undefined;
+    if (graph && relayDev) {
+        for (const src of listSourcesOnRelay(graph, relayDev)) {
+            if (!STORE_SOURCE_ROLES.includes(src.role))
+                continue;
+            appendStorageInventoryEntries(entries, seen, src.card, stacks, '上游有货');
         }
     }
-    if (showAllStorable || entries.length <= 1) {
-        for (const id of listStorableCardIds(allCards)) {
-            if (seen.has(id))
-                continue;
-            seen.add(id);
-            const def = dataStore.getCard(id);
-            entries.push({
-                key: id,
-                cardId: id,
-                title: def?.name ?? id,
-                subtitle: '仅存入此物',
-                filterCardId: id,
-            });
-            if (entries.length >= 25)
-                break;
-        }
+    const depot = graph ? getLinkedDepotForSortHand(graph, sortHand) : null;
+    if (depot) {
+        appendStorageInventoryEntries(entries, seen, depot, stacks, '投放仓储有货');
+    }
+    for (const id of listStorableCardIds(allCards)) {
+        if (seen.has(id))
+            continue;
+        seen.add(id);
+        const def = dataStore.getCard(id);
+        entries.push({
+            key: id,
+            cardId: id,
+            title: def?.name ?? id,
+            subtitle: '仅存入此物',
+            filterCardId: id,
+        });
+        if (entries.length >= 25)
+            break;
     }
     return entries;
 }

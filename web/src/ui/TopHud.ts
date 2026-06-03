@@ -264,9 +264,9 @@ export default class TopHud extends Phaser.GameObjects.Container {
       HUD_GUIDE_BTN,
     );
 
-    this.settingsBtn = new HudActionButton(this.scene, 0, 0, '⚙', () => {
+    this.settingsBtn = new HudActionButton(this.scene, 0, 0, '存档', () => {
       this.scene.events.emit('hud-action', { key: 'settings' as HudActionKey });
-    });
+    }, HUD_GUIDE_BTN);
 
     this.actionRail.add([this.speedBtn, this.guideBtn, this.settingsBtn]);
     this.rightRail.add(this.actionRail);
@@ -353,7 +353,11 @@ export default class TopHud extends Phaser.GameObjects.Container {
 
   startDayCycle(onDayEnd: () => void): void {
     this.onDayEnd = onDayEnd;
-    this.remaining = this.scene.registry.get(REGISTRY.DAY_SECONDS) as number;
+    const total = this.scene.registry.get(REGISTRY.DAY_SECONDS) as number;
+    const savedRemaining = this.scene.registry.get(REGISTRY.DAY_REMAINING) as number | undefined;
+    // 0 means day just ended; do not resume at 0 or the next tick fires day-end again.
+    this.remaining =
+      savedRemaining != null && savedRemaining > 0 ? savedRemaining : total;
     this.dayEvent?.remove();
     this.dayEvent = this.scene.time.addEvent({
       delay: 1000,
@@ -373,7 +377,9 @@ export default class TopHud extends Phaser.GameObjects.Container {
   advanceDay(): void {
     const idx = (this.scene.registry.get(REGISTRY.DAY_INDEX) as number) + 1;
     this.scene.registry.set(REGISTRY.DAY_INDEX, idx);
-    this.remaining = this.scene.registry.get(REGISTRY.DAY_SECONDS) as number;
+    const total = this.scene.registry.get(REGISTRY.DAY_SECONDS) as number;
+    this.remaining = total;
+    this.scene.registry.set(REGISTRY.DAY_REMAINING, total);
     if (this.onDayEnd) this.startDayCycle(this.onDayEnd);
   }
 
@@ -394,6 +400,17 @@ export default class TopHud extends Phaser.GameObjects.Container {
 
   getDayRemaining(): number {
     return this.remaining;
+  }
+
+  getSpeedLevel(): number {
+    return this.speedLevel;
+  }
+
+  restoreDayState(dayIndex: number, dayRemaining: number): void {
+    this.scene.registry.set(REGISTRY.DAY_INDEX, dayIndex);
+    this.remaining = Math.max(0, dayRemaining);
+    this.scene.registry.set(REGISTRY.DAY_REMAINING, this.remaining);
+    this.refreshDay();
   }
 
   destroy(fromScene?: boolean): void {

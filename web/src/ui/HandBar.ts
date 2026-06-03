@@ -7,7 +7,7 @@ import {
   HAND_SLOT_GAP,
   HAND_SLOT_SCALE,
 } from '../config/layoutConfig';
-import { HandInventory } from '../core/HandInventory';
+import { HandInventory, type HandSlot } from '../core/HandInventory';
 import { CardSpawner } from '../core/CardSpawner';
 import { dataStore } from '../core/DataStore';
 import { getDefenseTurretRange } from '../core/defenseTurretRange';
@@ -246,6 +246,11 @@ export default class HandBar extends Phaser.GameObjects.Container {
     if (this.panelRect) {
       this.rebuildSlots();
     }
+  }
+
+  restoreInventory(slots: HandSlot[]): void {
+    this.inventory.replaceAll(slots);
+    if (this.panelRect) this.rebuildSlots();
   }
 
   private slotStep(): number {

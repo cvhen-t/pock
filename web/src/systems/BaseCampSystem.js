@@ -77,6 +77,17 @@ export class BaseCampSystem {
     getHp() {
         return { hp: this.hp, maxHp: this.maxHp };
     }
+    getSaveDestroyed() {
+        return this.destroyed;
+    }
+    applySaveState(state) {
+        if (!this.card)
+            return;
+        this.maxHp = state.maxHp;
+        this.destroyed = state.destroyed;
+        this.hp = state.destroyed ? 0 : Phaser.Math.Clamp(state.hp, 0, state.maxHp);
+        this.refreshHpBar();
+    }
     damage(amount) {
         if (!this.isActive || !this.card)
             return;

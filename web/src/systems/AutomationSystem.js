@@ -2,10 +2,11 @@ import Phaser from 'phaser';
 import GameCard from '../objects/GameCard';
 import { dataStore } from '../core/DataStore';
 import { parseAutomationConfig, REGISTRY_AUTOMATION_CONFIG } from '../core/automationConfig';
-import { buildAutomationGraph, findDevice, findSortHandsViaGraph, getLinkedDepotForSortHand, getLinkedFacilityForSortHand, getRelayForFacility, getSortHandDownstream, getWarehousesLinkedToFacility, isActiveCollectorChain, isActiveFacilityRelayChain, isActiveWarehouseRelayChain, loadLinkRulesFromRegistry, REGISTRY_AUTOMATION_GRAPH, } from '../core/automationNetwork';
+import { canRelayDispatchPacket, isSourceRelayPathActive, listSourcesOnRelay, } from '../core/automationPath';
+import { buildAutomationGraph, findDevice, findSortHandsViaGraph, getLinkedDepotForSortHand, getLinkedFacilityForSortHand, getRelayForFacility, getSortHandDownstream, getWarehousesLinkedToFacility, loadLinkRulesFromRegistry, REGISTRY_AUTOMATION_GRAPH, } from '../core/automationNetwork';
 import { deliverPacketToDepot, deliverToCraftStation, deliverToPlayerWarehouse, stationNeedsCard, } from '../core/automationDelivery';
 import { getModeTargetRole, getSortFilterCardId, getSortHandWeight, getSortMode, packetMatchesSortHand, rotateWeightedTier, sortWeightsDescending, } from '../core/sortHandRules';
-import { getWarehouseInventory, pullFromAutoDepot, pullFromWarehouse } from '../core/storageInventory';
+import { getWarehouseInventory, isAutoDepotCard, pullFromAutoDepot, pullFromWarehouse, } from '../core/storageInventory';
 const LOOT_DATA_KEY = 'lootDrop';
 export class AutomationSystem {
     scene;
@@ -16,11 +17,8 @@ export class AutomationSystem {
     resources;
     rules;
     config;
-    chains = [];
-    facilityChains = [];
-    warehouseChains = [];
+    relayBuses = [];
     rebuildQueued = false;
-    /** relayId + weight → round-robin cursor */
     relayWeightCursors = new Map();
     tickEvent;
     constructor(scene, stacks, spawner, drag, shopCatalog, resources) {
@@ -36,6 +34,11 @@ export class AutomationSystem {
         scene.events.on('card-spawned', () => this.scheduleRebuild());
         scene.events.on('card-removed', () => this.scheduleRebuild());
         scene.events.on('card-rotated', () => this.scheduleRebuild());
+        scene.events.on('card-drag-end', () => this.scheduleRebuild());
+        scene.events.on('automation-graph-refresh-request', () => {
+            if (this.drag.getLogisticsDragContext())
+                this.rebuildChains();
+        });
         scene.events.on('craft-output', (payload) => this.onCraftOutput(payload));
         this.tickEvent = scene.time.addEvent({
             delay: this.config.tickSeconds * 1000,
@@ -58,67 +61,33 @@ export class AutomationSystem {
         return this.scene.registry.get('dayIndex') ?? 1;
     }
     rebuildChains() {
-        const graph = buildAutomationGraph(this.scene, this.config, this.rules);
+        const dragOpts = this.drag.getLogisticsDragContext();
+        const graph = buildAutomationGraph(this.scene, this.config, this.rules, dragOpts);
         this.scene.registry.set(REGISTRY_AUTOMATION_GRAPH, graph);
         this.scene.events.emit('automation-graph-updated', graph);
-        const collectors = graph.devices.filter((d) => d.role === 'logistics_collect');
-        const nextChains = [];
-        for (const col of collectors) {
-            if (!isActiveCollectorChain(graph, col))
+        const nextBuses = [];
+        for (const relayDev of graph.devices.filter((d) => d.role === 'auto_relay')) {
+            const sortHands = findSortHandsViaGraph(graph.edges, relayDev);
+            const hasSources = listSourcesOnRelay(graph, relayDev).length > 0;
+            if (sortHands.length === 0 && !hasSources)
                 continue;
-            const relayEdge = graph.edges.find((e) => e.from.id === col.id);
-            const relay = relayEdge?.to;
-            if (!relay)
-                continue;
-            const existing = this.chains.find((c) => c.collectorCard === col.card);
-            nextChains.push({
-                collectorCard: col.card,
-                relayCard: relay.card,
+            const existing = this.relayBuses.find((b) => b.relayCard === relayDev.card);
+            nextBuses.push({
+                relayCard: relayDev.card,
+                relayId: relayDev.id,
                 packets: existing?.packets.map((p) => ({
                     ...p,
-                    atRelay: p.atRelay ?? relay.card,
+                    atRelay: p.atRelay ?? relayDev.card,
                 })) ?? [],
             });
         }
-        this.chains = nextChains;
-        const nextFacilityChains = [];
-        for (const dev of graph.devices.filter((d) => d.role === 'logistics_facility')) {
-            if (!isActiveFacilityRelayChain(graph, dev))
-                continue;
-            const relay = graph.edges.find((e) => e.from.id === dev.id && e.toRole === 'auto_relay')?.to;
-            if (!relay)
-                continue;
-            const existing = this.facilityChains.find((c) => c.facilityCard === dev.card);
-            nextFacilityChains.push({
-                facilityCard: dev.card,
-                relayCard: relay.card,
-                packets: existing?.packets.map((p) => ({
-                    ...p,
-                    atRelay: p.atRelay ?? relay.card,
-                })) ?? [],
-            });
-        }
-        this.facilityChains = nextFacilityChains;
-        const nextWarehouseChains = [];
-        for (const dev of graph.devices.filter((d) => d.role === 'warehouse')) {
-            if (!isActiveWarehouseRelayChain(graph, dev))
-                continue;
-            const relay = graph.edges.find((e) => e.from.id === dev.id && e.toRole === 'auto_relay')?.to;
-            if (!relay)
-                continue;
-            const existing = this.warehouseChains.find((c) => c.warehouseCard === dev.card);
-            nextWarehouseChains.push({
-                warehouseCard: dev.card,
-                relayCard: relay.card,
-                packets: existing?.packets.map((p) => ({
-                    ...p,
-                    atRelay: p.atRelay ?? relay.card,
-                })) ?? [],
-            });
-        }
-        this.warehouseChains = nextWarehouseChains;
+        this.relayBuses = nextBuses;
+    }
+    findBusForRelay(relayCard) {
+        return this.relayBuses.find((b) => b.relayCard === relayCard);
     }
     onCraftOutput(payload) {
+        this.rebuildChains();
         const graph = this.scene.registry.get(REGISTRY_AUTOMATION_GRAPH);
         if (!graph)
             return;
@@ -126,18 +95,23 @@ export class AutomationSystem {
         if (!relay)
             return;
         const facDev = findDevice(graph, payload.facility);
-        if (!facDev || !isActiveFacilityRelayChain(graph, facDev))
+        if (!facDev || !isSourceRelayPathActive(graph, facDev))
             return;
-        let chain = this.facilityChains.find((c) => c.facilityCard === payload.facility && c.relayCard === relay);
-        if (!chain) {
-            chain = { facilityCard: payload.facility, relayCard: relay, packets: [] };
-            this.facilityChains.push(chain);
+        let bus = this.findBusForRelay(relay);
+        if (!bus) {
+            const relayDev = findDevice(graph, relay);
+            if (!relayDev)
+                return;
+            bus = { relayCard: relay, relayId: relayDev.id, packets: [] };
+            this.relayBuses.push(bus);
         }
         let queued = 0;
         for (const out of payload.outputs) {
-            if (chain.packets.length + queued >= this.config.maxPacketsPerChain)
+            if (bus.packets.length + queued >= this.config.maxPacketsPerRelay)
                 break;
-            chain.packets.push({
+            if (!canRelayDispatchPacket(graph, relay, out.cardId))
+                continue;
+            bus.packets.push({
                 cardId: out.cardId,
                 qty: out.qty,
                 hopTimer: 0,
@@ -153,34 +127,151 @@ export class AutomationSystem {
         const graph = this.scene.registry.get(REGISTRY_AUTOMATION_GRAPH);
         if (!graph)
             return;
-        for (const chain of this.chains) {
-            this.runCollector(chain);
-            chain.packets = this.advanceRelayPackets(chain.packets, graph);
-            this.runBuyTick(chain, graph);
-            this.runStorageFeed(chain, graph);
+        for (const bus of this.relayBuses) {
+            this.runRelayInjections(bus, graph);
+            bus.packets = this.advanceRelayPackets(bus.packets, graph);
+            this.runBuyTick(bus, graph);
+            this.runStorageFeed(bus, graph);
         }
-        for (const fChain of this.facilityChains) {
-            fChain.packets = this.advanceRelayPackets(fChain.packets, graph);
+    }
+    runRelayInjections(bus, graph) {
+        if (bus.packets.length >= this.config.maxPacketsPerRelay)
+            return;
+        const relayDev = findDevice(graph, bus.relayCard);
+        if (!relayDev)
+            return;
+        let injected = 0;
+        for (const role of this.config.sourceInjectPriority) {
+            if (injected >= this.config.maxInjectPerRelayPerTick)
+                break;
+            if (role === 'logistics_collect' && this.tryInjectCollectors(bus, graph, relayDev)) {
+                injected += 1;
+            }
+            else if (role === 'warehouse' && this.tryInjectFromStorages(bus, graph, relayDev, 'warehouse')) {
+                injected += 1;
+            }
+            else if (role === 'logistics_depot' &&
+                this.tryInjectFromStorages(bus, graph, relayDev, 'logistics_depot')) {
+                injected += 1;
+            }
         }
-        for (const wChain of this.warehouseChains) {
-            this.runWarehouseExport(wChain, graph);
-            wChain.packets = this.advanceRelayPackets(wChain.packets, graph);
+    }
+    tryInjectCollectors(bus, graph, relayDev) {
+        const collectors = listSourcesOnRelay(graph, relayDev).filter((s) => s.role === 'logistics_collect');
+        for (const col of collectors) {
+            if (!isSourceRelayPathActive(graph, col))
+                continue;
+            if (this.runCollectorPickup(col.card, bus))
+                return true;
         }
+        return false;
+    }
+    tryInjectFromStorages(bus, graph, relayDev, role) {
+        const sources = listSourcesOnRelay(graph, relayDev).filter((s) => s.role === role);
+        for (const src of sources) {
+            if (!isSourceRelayPathActive(graph, src))
+                continue;
+            const stack = this.stacks.getStackAt(src.card);
+            if (!stack)
+                continue;
+            const inventory = getWarehouseInventory(stack);
+            if (this.tryPushStorageOutbound(bus, graph, relayDev, src.card, inventory)) {
+                return true;
+            }
+        }
+        return false;
+    }
+    tryPushStorageOutbound(bus, graph, _relayDev, storageCard, inventory) {
+        const modes = ['sell', 'store', 'feed'];
+        const recipes = dataStore.getRecipes().filter((r) => r.stationId);
+        for (const mode of modes) {
+            const hands = this.sortHandsOnRelay(graph, bus.relayCard).filter((sh) => getSortMode(sh) === mode);
+            const pushed = this.forSortHandsByWeight(bus.relayId, hands, (sortHand) => {
+                const filterId = getSortFilterCardId(sortHand);
+                if (mode === 'sell') {
+                    const shop = getSortHandDownstream(graph, sortHand, 'shop');
+                    if (!shop)
+                        return false;
+                    const candidates = this.storageCandidates(inventory, filterId).filter((cardId) => {
+                        const def = dataStore.getCard(cardId);
+                        return this.shopCatalog.resolveSellCaps(cardId, def?.tags ?? []) > 0;
+                    });
+                    const cardId = candidates[0];
+                    if (!cardId)
+                        return false;
+                    this.pushPacket(bus, cardId, storageCard);
+                    return true;
+                }
+                if (mode === 'store') {
+                    const wh = getSortHandDownstream(graph, sortHand, 'warehouse');
+                    if (!wh)
+                        return false;
+                    const cardId = this.storageCandidates(inventory, filterId)[0];
+                    if (!cardId)
+                        return false;
+                    this.pushPacket(bus, cardId, storageCard);
+                    return true;
+                }
+                const facility = getLinkedFacilityForSortHand(graph, sortHand);
+                const depot = getLinkedDepotForSortHand(graph, sortHand);
+                const target = facility ?? depot;
+                if (!target)
+                    return false;
+                if (facility) {
+                    const cardId = this.storageCandidates(inventory, filterId).find((id) => stationNeedsCard(facility, id, recipes, this.getDayIndex()));
+                    if (!cardId)
+                        return false;
+                    this.pushPacket(bus, cardId, storageCard);
+                    return true;
+                }
+                const cardId = this.storageCandidates(inventory, filterId)[0];
+                if (!cardId)
+                    return false;
+                this.pushPacket(bus, cardId, storageCard);
+                return true;
+            });
+            if (pushed)
+                return true;
+        }
+        return false;
+    }
+    storageCandidates(inventory, filterId) {
+        const stocked = inventory.filter((e) => e.qty > 0);
+        if (filterId) {
+            const one = stocked.find((e) => e.cardId === filterId);
+            return one ? [one.cardId] : [];
+        }
+        return stocked.map((e) => e.cardId);
+    }
+    pushPacket(bus, cardId, sourceStorage) {
+        bus.packets.push({
+            cardId,
+            qty: 1,
+            hopTimer: 0,
+            atRelay: bus.relayCard,
+            sourceStorage,
+        });
+    }
+    pullFromSourceStorage(storage, cardId, qty) {
+        if (isAutoDepotCard(storage)) {
+            return pullFromAutoDepot(this.stacks, storage, cardId, qty);
+        }
+        return pullFromWarehouse(this.stacks, storage, cardId, qty) > 0;
     }
     getCollectorRadius(collectorCard) {
         const effect = collectorCard.definition.effects?.find((e) => e.type === 'auto_collector');
-        return Number(effect?.pickupRadius) ||
-            this.config.collectorPickupRadius;
+        return (Number(effect?.pickupRadius) ||
+            this.config.collectorPickupRadius);
     }
-    runCollector(chain) {
-        if (chain.packets.length >= this.config.maxPacketsPerChain)
-            return;
-        const radius = this.getCollectorRadius(chain.collectorCard);
-        const { x: cx, y: cy } = chain.collectorCard;
+    runCollectorPickup(collectorCard, bus) {
+        if (bus.packets.length >= this.config.maxPacketsPerRelay)
+            return false;
+        const radius = this.getCollectorRadius(collectorCard);
+        const { x: cx, y: cy } = collectorCard;
         let best = null;
         let bestDist = radius;
         for (const obj of this.scene.children.list) {
-            if (!(obj instanceof GameCard) || obj === chain.collectorCard)
+            if (!(obj instanceof GameCard) || obj === collectorCard)
                 continue;
             const tags = obj.definition.tags ?? [];
             if (obj.getData(LOOT_DATA_KEY) !== true && !tags.includes('resource'))
@@ -197,14 +288,15 @@ export class AutomationSystem {
             }
         }
         if (!best)
-            return;
+            return false;
         const cardId = best.definition.id;
         const qty = best.quantity;
         this.stacks.removeCardFromPlay(best);
         best.destroy();
-        chain.packets.push({ cardId, qty: 1, hopTimer: 0, atRelay: chain.relayCard });
+        this.pushPacket(bus, cardId);
         if (qty > 1)
             this.spawner.spawn(cardId, best.x, best.y, qty - 1);
+        return true;
     }
     advanceRelayPackets(packets, graph) {
         const dt = this.config.tickSeconds;
@@ -212,6 +304,10 @@ export class AutomationSystem {
         const remaining = [];
         for (const packet of packets) {
             if (packet.blocked) {
+                packet.blockedTicks = (packet.blockedTicks ?? 0) + 1;
+                if (packet.blockedTicks >= this.config.packetBlockedPurgeTicks) {
+                    continue;
+                }
                 remaining.push(packet);
                 continue;
             }
@@ -278,24 +374,34 @@ export class AutomationSystem {
         }
         const sorterEdges = graph.edges.filter((e) => e.from.id === relayDev.id && e.toRole === 'logistics_sorter');
         const eligible = [];
-        sorterEdges.forEach((sorterEdge, index) => {
+        sorterEdges.forEach((sorterEdge) => {
             const sortHand = sorterEdge.to.card;
             if (!packetMatchesSortHand(packet, sortHand))
                 return;
             const mode = getSortMode(sortHand);
             const targetRole = getModeTargetRole(mode);
-            const target = getSortHandDownstream(graph, sortHand, targetRole);
+            let target = getSortHandDownstream(graph, sortHand, targetRole);
+            if (mode === 'feed' && !target) {
+                target =
+                    getSortHandDownstream(graph, sortHand, 'logistics_depot') ??
+                        getSortHandDownstream(graph, sortHand, 'logistics_facility');
+            }
             if (!target)
                 return;
-            eligible.push({ sortHand, index });
+            eligible.push(sortHand);
         });
         if (eligible.length === 0) {
             packet.blocked = true;
             return 'blocked';
         }
-        const delivered = this.forSortHandsByWeight(relayDev.id, eligible.map((e) => e.sortHand), (sortHand) => {
+        const delivered = this.forSortHandsByWeight(relayDev.id, eligible, (sortHand) => {
             const mode = getSortMode(sortHand);
-            const target = getSortHandDownstream(graph, sortHand, getModeTargetRole(mode));
+            let target = getSortHandDownstream(graph, sortHand, getModeTargetRole(mode));
+            if (mode === 'feed' && !target) {
+                target =
+                    getSortHandDownstream(graph, sortHand, 'logistics_depot') ??
+                        getSortHandDownstream(graph, sortHand, 'logistics_facility');
+            }
             if (!target)
                 return false;
             return this.deliverFromSortHand(packet, mode, target, sortHand, graph);
@@ -308,6 +414,11 @@ export class AutomationSystem {
     deliverFromSortHand(packet, mode, target, sortHand, graph) {
         const ctx = { stacks: this.stacks, spawner: this.spawner, drag: this.drag };
         if (mode === 'sell') {
+            if (packet.sourceStorage) {
+                if (!this.pullFromSourceStorage(packet.sourceStorage, packet.cardId, packet.qty)) {
+                    return false;
+                }
+            }
             const def = dataStore.getCard(packet.cardId);
             const caps = this.shopCatalog.resolveSellCaps(packet.cardId, def?.tags ?? []);
             if (caps <= 0)
@@ -317,19 +428,29 @@ export class AutomationSystem {
             return true;
         }
         if (mode === 'store') {
+            if (packet.sourceStorage) {
+                if (!this.pullFromSourceStorage(packet.sourceStorage, packet.cardId, packet.qty)) {
+                    return false;
+                }
+            }
             return deliverToPlayerWarehouse(this.stacks, this.spawner, this.drag, target, packet.cardId, packet.qty);
         }
         if (mode === 'feed') {
             const depot = getLinkedDepotForSortHand(graph, sortHand);
             if (depot && target === depot) {
+                if (packet.sourceStorage) {
+                    if (!this.pullFromSourceStorage(packet.sourceStorage, packet.cardId, packet.qty)) {
+                        return false;
+                    }
+                }
                 return deliverPacketToDepot(ctx, depot, packet);
             }
-            if (packet.sourceWarehouse) {
+            if (packet.sourceStorage) {
                 const recipes = dataStore.getRecipes().filter((r) => r.stationId);
                 if (!stationNeedsCard(target, packet.cardId, recipes, this.getDayIndex())) {
                     return false;
                 }
-                if (!pullFromWarehouse(this.stacks, packet.sourceWarehouse, packet.cardId, packet.qty)) {
+                if (!this.pullFromSourceStorage(packet.sourceStorage, packet.cardId, packet.qty)) {
                     return false;
                 }
                 return deliverToCraftStation(this.stacks, this.spawner, this.drag, target, packet.cardId, packet.qty);
@@ -338,12 +459,12 @@ export class AutomationSystem {
         }
         return false;
     }
-    runBuyTick(chain, graph) {
-        const relayDev = findDevice(graph, chain.relayCard);
+    runBuyTick(bus, graph) {
+        const relayDev = findDevice(graph, bus.relayCard);
         if (!relayDev)
             return;
-        const buyHands = this.sortHandsOnRelay(graph, chain.relayCard).filter((sh) => getSortMode(sh) === 'buy');
-        this.forSortHandsByWeight(relayDev.id, buyHands, (sortHand) => {
+        const buyHands = this.sortHandsOnRelay(graph, bus.relayCard).filter((sh) => getSortMode(sh) === 'buy');
+        this.forSortHandsByWeight(bus.relayId, buyHands, (sortHand) => {
             const shop = getSortHandDownstream(graph, sortHand, 'shop');
             if (!shop)
                 return false;
@@ -365,14 +486,16 @@ export class AutomationSystem {
             return true;
         });
     }
-    /** 分拣手 → 投放仓储 / 储物棚 → 生产设施 缓冲供料 */
-    runStorageFeed(chain, graph) {
-        const relayDev = findDevice(graph, chain.relayCard);
+    runStorageFeed(bus, graph) {
+        const relayDev = findDevice(graph, bus.relayCard);
         if (!relayDev)
             return;
-        const feedHands = this.sortHandsOnRelay(graph, chain.relayCard).filter((sh) => getSortMode(sh) === 'feed');
+        const feedHands = this.sortHandsOnRelay(graph, bus.relayCard).filter((sh) => getSortMode(sh) === 'feed');
         const recipes = dataStore.getRecipes().filter((r) => r.stationId);
-        this.forSortHandsByWeight(relayDev.id, feedHands, (sortHand) => {
+        let pulls = 0;
+        this.forSortHandsByWeight(bus.relayId, feedHands, (sortHand) => {
+            if (pulls >= this.config.maxPullPerTick)
+                return false;
             const filterId = getSortFilterCardId(sortHand);
             if (!filterId)
                 return false;
@@ -388,50 +511,17 @@ export class AutomationSystem {
                 if (!pullFromAutoDepot(this.stacks, depot, filterId, 1))
                     return false;
                 deliverToCraftStation(this.stacks, this.spawner, this.drag, facility, filterId, 1);
+                pulls += 1;
                 return true;
             }
             for (const warehouse of getWarehousesLinkedToFacility(graph, facility)) {
                 if (!pullFromWarehouse(this.stacks, warehouse, filterId, 1))
                     continue;
                 deliverToCraftStation(this.stacks, this.spawner, this.drag, facility, filterId, 1);
+                pulls += 1;
                 return true;
             }
             return false;
         });
-    }
-    /** 储物棚 → 传送 → 分拣手：按筛选向中继投放库存包裹 */
-    runWarehouseExport(wChain, graph) {
-        if (wChain.packets.length >= this.config.maxPacketsPerChain)
-            return;
-        const stack = this.stacks.getStackAt(wChain.warehouseCard);
-        if (!stack)
-            return;
-        const inventory = getWarehouseInventory(stack);
-        const relayDev = findDevice(graph, wChain.relayCard);
-        if (!relayDev)
-            return;
-        const feedHands = this.sortHandsOnRelay(graph, wChain.relayCard).filter((sh) => getSortMode(sh) === 'feed');
-        const recipes = dataStore.getRecipes().filter((r) => r.stationId);
-        for (const sortHand of feedHands) {
-            const filterId = getSortFilterCardId(sortHand);
-            if (!filterId)
-                continue;
-            const facility = getLinkedFacilityForSortHand(graph, sortHand);
-            if (!facility)
-                continue;
-            if (!stationNeedsCard(facility, filterId, recipes, this.getDayIndex()))
-                continue;
-            const stocked = inventory.find((e) => e.cardId === filterId && e.qty > 0);
-            if (!stocked)
-                continue;
-            wChain.packets.push({
-                cardId: filterId,
-                qty: 1,
-                hopTimer: 0,
-                atRelay: wChain.relayCard,
-                sourceWarehouse: wChain.warehouseCard,
-            });
-            return;
-        }
     }
 }

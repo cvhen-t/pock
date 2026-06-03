@@ -74,6 +74,9 @@ export default class ActionBar extends Phaser.GameObjects.Container {
     setGameOver(over) {
         this.gameOver = over;
     }
+    getBlueprintStackSystem() {
+        return this.barStacks;
+    }
     setDropHover(active) {
         if (this.dropHover === active)
             return;

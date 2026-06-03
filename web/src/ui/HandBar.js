@@ -152,6 +152,11 @@ export default class HandBar extends Phaser.GameObjects.Container {
             this.rebuildSlots();
         }
     }
+    restoreInventory(slots) {
+        this.inventory.replaceAll(slots);
+        if (this.panelRect)
+            this.rebuildSlots();
+    }
     slotStep() {
         const metrics = CARD_SHAPES.compact;
         const scale = HAND_SLOT_SCALE;

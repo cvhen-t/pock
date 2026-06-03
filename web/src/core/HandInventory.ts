@@ -38,4 +38,9 @@ export class HandInventory {
     }
     return true;
   }
+
+  replaceAll(slots: HandSlot[]): void {
+    this.slots = slots.map((s) => ({ ...s }));
+    this.nextOrder = slots.reduce((max, s) => Math.max(max, s.order + 1), 0);
+  }
 }

@@ -44,6 +44,23 @@ export class BarrierSystem {
     this.barriers.clear();
   }
 
+  collectSaveEntries(): { card: GameCard; hp: number; maxHp: number }[] {
+    const out: { card: GameCard; hp: number; maxHp: number }[] = [];
+    for (const s of this.barriers.values()) {
+      if (!s.card.active) continue;
+      out.push({ card: s.card, hp: s.hp, maxHp: s.maxHp });
+    }
+    return out;
+  }
+
+  applySaveHp(card: GameCard, hp: number, maxHp: number): void {
+    const s = this.barriers.get(card);
+    if (!s) return;
+    s.maxHp = maxHp;
+    s.hp = Phaser.Math.Clamp(hp, 0, maxHp);
+    s.hpBar.setRatio(s.maxHp > 0 ? s.hp / s.maxHp : 0);
+  }
+
   tryRegister(card: GameCard): void {
     if (this.barriers.has(card)) return;
     const effect = card.definition.effects?.find((e) => e.type === 'barrier') as
